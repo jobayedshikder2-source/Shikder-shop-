@@ -1,0 +1,6 @@
+{
+  "name": "SHIKDER SHOP",
+  "description": "Single-vendor e-commerce platform for Bangladesh with Firebase Auth, Firestore, bilingual EN/BN support, and PWA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

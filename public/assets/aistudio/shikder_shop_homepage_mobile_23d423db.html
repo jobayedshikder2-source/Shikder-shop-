@@ -1,0 +1,619 @@
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SHIKDER SHOP — Bangladesh&#39;s Trusted Online Store</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">/** @type {import('tailwindcss').Config} */
+globalThis.tailwind = globalThis.tailwind || {};
+globalThis.tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        'success': '#137333',
+        'on-success': '#FFFFFF',
+        'warning': '#B06000',
+        'on-warning': '#FFFFFF',
+        'light-primary': '#004331',
+        'light-on-primary': '#FFFFFF',
+        'light-primary-container': '#0D5C46',
+        'light-on-primary-container': '#8CD2B6',
+        'light-secondary': '#A63B00',
+        'light-on-secondary': '#FFFFFF',
+        'light-secondary-container': '#FF793F',
+        'light-on-secondary-container': '#652100',
+        'light-tertiary': '#612922',
+        'light-on-tertiary': '#FFFFFF',
+        'light-tertiary-container': '#7D3F37',
+        'light-on-tertiary-container': '#FFB0A5',
+        'light-error': '#BA1A1A',
+        'light-on-error': '#FFFFFF',
+        'light-error-container': '#FFDAD6',
+        'light-on-error-container': '#93000A',
+        'light-background': '#F3FBF6',
+        'light-on-background': '#151D1A',
+        'light-surface': '#F3FBF6',
+        'light-surface-dim': '#D3DCD7',
+        'light-surface-bright': '#FFFFFF',
+        'light-surface-container-lowest': '#FFFFFF',
+        'light-surface-container-low': '#EDF6F0',
+        'light-surface-container': '#E7F0EB',
+        'light-surface-container-high': '#E2EAE5',
+        'light-surface-container-highest': '#DCE5DF',
+        'light-on-surface': '#151D1A',
+        'light-surface-variant': '#DBE5DE',
+        'light-on-surface-variant': '#3F4944',
+        'light-outline': '#6F7974',
+        'light-outline-variant': '#BFC9C2',
+        'light-inverse-surface': '#2A322F',
+        'light-inverse-on-surface': '#EAF3EE',
+        'light-inverse-primary': '#8ED5B9',
+        'dark-primary': '#8ED5B9',
+        'dark-on-primary': '#003829',
+        'dark-primary-container': '#0D5C46',
+        'dark-on-primary-container': '#8CD2B6',
+        'dark-secondary': '#FFB599',
+        'dark-on-secondary': '#5A1C00',
+        'dark-secondary-container': '#AE3E01',
+        'dark-on-secondary-container': '#FFD8CA',
+        'dark-tertiary': '#FFB4A9',
+        'dark-on-tertiary': '#552019',
+        'dark-tertiary-container': '#7D3F37',
+        'dark-on-tertiary-container': '#FFB0A5',
+        'dark-error': '#FFB4AB',
+        'dark-on-error': '#690005',
+        'dark-error-container': '#93000A',
+        'dark-on-error-container': '#FFDAD6',
+        'dark-background': '#0D1512',
+        'dark-on-background': '#DCE5DF',
+        'dark-surface': '#0D1512',
+        'dark-surface-dim': '#0D1512',
+        'dark-surface-bright': '#333B38',
+        'dark-surface-container-lowest': '#08100D',
+        'dark-surface-container-low': '#151D1A',
+        'dark-surface-container': '#19211E',
+        'dark-surface-container-high': '#242C29',
+        'dark-surface-container-highest': '#2E3733',
+        'dark-on-surface': '#DCE5DF',
+        'dark-surface-variant': '#3F4944',
+        'dark-on-surface-variant': '#BFC9C2',
+        'dark-outline': '#89938D',
+        'dark-outline-variant': '#3F4944',
+        'dark-inverse-surface': '#DCE5DF',
+        'dark-inverse-on-surface': '#2A322F',
+        'dark-inverse-primary': '#226A53',
+      },
+      borderRadius: {
+        'sm': '4px',
+        'DEFAULT': '8px',
+        'md': '12px',
+        'lg': '16px',
+        'xl': '24px',
+        'full': '9999px',
+      },
+      spacing: {
+        'gutter-xs': '4px',
+        'gutter-sm': '8px',
+        'gutter-md': '12px',
+        'gutter-lg': '16px',
+        'gutter-xl': '24px',
+        'section': '32px',
+        'page-margin': '16px',
+      },
+      fontFamily: {
+        'display': ['"Mulish"', 'sans-serif'],
+        'headline': ['"Mulish"', 'sans-serif'],
+        'title': ['"Instrument Sans"', 'sans-serif'],
+        'body': ['"Instrument Sans"', 'sans-serif'],
+        'label': ['"Instrument Sans"', 'sans-serif'],
+        'mono': ['"Source Code Pro"', 'monospace'],
+      },
+      fontSize: {
+        'display-lg': ['44px', { lineHeight: '50px', letterSpacing: '-0.75px', fontWeight: '800' }],
+        'display-lg-mobile': ['28px', { lineHeight: '34px', letterSpacing: '-0.5px', fontWeight: '800' }],
+        'headline-lg': ['32px', { lineHeight: '38px', letterSpacing: '-0.25px', fontWeight: '700' }],
+        'headline-md': ['22px', { lineHeight: '28px', letterSpacing: '-0.15px', fontWeight: '700' }],
+        'title-lg': ['18px', { lineHeight: '24px', letterSpacing: '0px', fontWeight: '600' }],
+        'title-md': ['15px', { lineHeight: '20px', letterSpacing: '0px', fontWeight: '600' }],
+        'body-lg': ['16px', { lineHeight: '24px', letterSpacing: '0px', fontWeight: '400' }],
+        'body-md': ['14px', { lineHeight: '20px', letterSpacing: '0px', fontWeight: '400' }],
+        'label-lg': ['14px', { lineHeight: '18px', letterSpacing: '0.1px', fontWeight: '600' }],
+        'label-sm': ['11px', { lineHeight: '14px', letterSpacing: '0.3px', fontWeight: '600' }],
+        'mono-md': ['13px', { lineHeight: '18px', letterSpacing: '0.2px', fontWeight: '500' }],
+      },
+      transitionDuration: {
+        'state-change': '120ms',
+        'surface-enter': '240ms',
+        'surface-exit': '150ms',
+      },
+      transitionDelay: {
+        'state-change': '0ms',
+        'surface-enter': '0ms',
+        'surface-exit': '0ms',
+      },
+      transitionTimingFunction: {
+        'state-change': 'ease-out',
+        'surface-enter': 'cubic-bezier(0.2, 0, 0, 1)',
+        'surface-exit': 'cubic-bezier(0.3, 0, 1, 1)',
+      },
+    },
+  },
+};
+if (typeof module !== 'undefined') module.exports = globalThis.tailwind.config;
+</script>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&amp;family=Mulish:wght@600;700;800&amp;family=Source+Code+Pro:wght@500;600&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet">
+  <style>
+    .material-symbols-outlined { display: inline-block; width: 1em; height: 1em; line-height: 1 !important; box-sizing: content-box; overflow: hidden; white-space: nowrap; direction: ltr; vertical-align: middle; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-light-surface dark:bg-dark-surface text-light-on-surface dark:text-dark-on-surface font-body antialiased">
+  <div class="min-h-[884px] flex flex-col max-w-md mx-auto bg-light-surface dark:bg-dark-surface" data-stitch-vh="min-h-[884px]===min-h-screen">
+
+    <!-- Announcement Bar -->
+    <div class="bg-light-primary dark:bg-dark-primary-container text-light-on-primary dark:text-dark-on-primary-container px-page-margin py-gutter-xs flex items-center justify-between gap-gutter-sm">
+      <p class="font-body text-label-sm truncate" data-design-text-token="label-sm" data-i18n="announcement">
+        Free Dhaka delivery over ৳1,500 • COD across 64 districts
+      </p>
+      <button id="lang-toggle" type="button" class="shrink-0 px-gutter-sm py-0.5 rounded-full bg-light-primary-container dark:bg-dark-surface text-light-on-primary dark:text-dark-primary border border-light-on-primary-container/30" aria-label="Switch language">
+        <span class="font-body text-label-sm" data-design-text-token="label-sm">EN / বাং</span>
+      </button>
+    </div>
+
+    <!-- Sticky Header & Search -->
+    <header class="sticky top-0 z-30 bg-light-surface-bright dark:bg-dark-surface-container-low border-b border-light-outline-variant dark:border-dark-outline-variant px-page-margin py-gutter-md flex flex-col gap-gutter-md">
+      <div class="flex items-center justify-between gap-gutter-sm">
+        <!-- Brand Logo -->
+        <a href="#top" class="flex items-center gap-gutter-sm">
+          <span class="w-8 h-8 rounded-md bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary flex items-center justify-center font-headline text-title-md">S</span>
+          <div class="flex flex-col">
+            <span class="font-headline text-title-md text-light-on-surface dark:text-dark-on-surface tracking-tight leading-none" data-design-text-token="title-md">SHIKDER SHOP</span>
+            <span class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">Official Store BD</span>
+          </div>
+        </a>
+
+        <!-- Global Actions -->
+        <div class="flex items-center gap-gutter-xs">
+          <button id="theme-toggle" data-component-id="button-icon" data-component-type="button" data-component-variant="icon" type="button" aria-label="Toggle dark mode" class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-light-surface-container-low dark:bg-dark-surface-container text-light-on-surface dark:text-dark-on-surface border border-light-outline-variant dark:border-dark-outline-variant transition-colors duration-state-change ease-state-change">
+            <span class="material-symbols-outlined text-[18px]" id="theme-icon">dark_mode</span>
+          </button>
+
+          <a href="#wishlist" aria-label="Wishlist (2 items)" class="relative inline-flex items-center justify-center w-9 h-9 rounded-full bg-light-surface-container-low dark:bg-dark-surface-container text-light-on-surface dark:text-dark-on-surface border border-light-outline-variant dark:border-dark-outline-variant">
+            <span class="material-symbols-outlined text-[18px]">favorite</span>
+            <span data-component-id="badge-numeric" data-component-type="badge" data-component-variant="numeric" aria-hidden="true" class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-light-secondary dark:bg-dark-secondary text-light-on-secondary dark:text-dark-on-secondary font-body text-label-sm tabular-nums">2</span>
+          </a>
+
+          <a href="#cart" aria-label="Shopping cart" class="relative inline-flex items-center justify-center w-9 h-9 rounded-full bg-light-surface-container-low dark:bg-dark-surface-container text-light-on-surface dark:text-dark-on-surface border border-light-outline-variant dark:border-dark-outline-variant">
+            <span class="material-symbols-outlined text-[18px]">shopping_bag</span>
+            <span id="cart-badge" data-component-id="badge-numeric" data-component-type="badge" data-component-variant="numeric" role="status" class="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-light-secondary dark:bg-dark-secondary text-light-on-secondary dark:text-dark-on-secondary font-body text-label-sm tabular-nums">3</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Search Bar with Live Suggestions -->
+      <div class="relative">
+        <label data-component-id="input-field-icon" data-component-type="input-field" data-component-variant="with-icon" class="w-full flex flex-col">
+          <span class="sr-only font-body text-label-sm" data-design-text-token="label-sm">Search products</span>
+          <div class="relative flex items-center">
+            <span class="absolute left-gutter-md text-light-outline dark:text-dark-outline pointer-events-none" aria-hidden="true">
+              <span class="material-symbols-outlined text-[18px]">search</span>
+            </span>
+            <input id="search-input" type="search" placeholder="Search headphones, panjabi, smartwatch..." class="w-full rounded-full pl-9 pr-gutter-lg py-gutter-sm bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant text-light-on-surface dark:text-dark-on-surface font-body text-body-md placeholder:text-light-outline dark:placeholder:text-dark-outline focus:border-light-primary dark:focus:border-dark-primary focus:ring-1 focus:ring-light-primary dark:focus:ring-dark-primary">
+          </div>
+        </label>
+        <div id="search-suggestions" class="hidden absolute left-0 right-0 top-full mt-gutter-xs rounded-md bg-light-surface-bright dark:bg-dark-surface-container-high border border-light-outline-variant dark:border-dark-outline-variant p-gutter-sm z-40">
+          <p class="font-body text-label-sm text-light-outline dark:text-dark-outline px-gutter-sm py-gutter-xs" data-design-text-token="label-sm">Popular in Bangladesh</p>
+          <a href="#flash-sale" class="flex items-center gap-gutter-sm px-gutter-sm py-gutter-xs rounded hover:bg-light-surface-container-low dark:hover:bg-dark-surface-container">
+            <span class="material-symbols-outlined text-[16px] text-light-outline dark:text-dark-outline">trending_up</span>
+            <span class="font-body text-body-md" data-design-text-token="body-md">ANC Wireless Headphones</span>
+          </a>
+          <a href="#tabs-section" class="flex items-center gap-gutter-sm px-gutter-sm py-gutter-xs rounded hover:bg-light-surface-container-low dark:hover:bg-dark-surface-container">
+            <span class="material-symbols-outlined text-[16px] text-light-outline dark:text-dark-outline">trending_up</span>
+            <span class="font-body text-body-md" data-design-text-token="body-md">Cotton Embroidered Panjabi</span>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col gap-section px-page-margin pt-gutter-lg pb-24">
+
+      <!-- Hero Slider -->
+      <section aria-label="Featured promotions" class="relative rounded-lg overflow-hidden border border-light-outline-variant dark:border-dark-outline-variant bg-light-primary dark:bg-dark-surface-container">
+        <div class="relative min-h-[200px] flex items-center">
+          <img src="https://lh3.googleusercontent.com/aida/ALJJyrCIsZMyFwsLiPNzQw4wzQnWgjhAqE1HqcTaPtztLVbPX-RNukmAYHVL1VfARRQ1b_HOqSHUmaCvoJPtSNdOr7tAevQ8NaYk9FOnN3qs9wD3eYOpsTtuY5jefbTm5d51GoQHzzAQsvbBERJZ0Q844Dv9Z3BKGIyB1_stTGjunfpK4sp4nc7eFzH9U25eXJoHQD88CesQp0uif1gkQxi4uIpsWSrl3VmimCdWFvZdsk6BJL7PE1BkU7stf6nFMsX-" alt="SHIKDER SHOP flagship electronics and lifestyle essentials" class="absolute inset-0 w-full h-full object-cover">
+          <div class="absolute inset-0 bg-gradient-to-r from-light-on-background/90 via-light-on-background/70 to-transparent"></div>
+          <div class="relative z-10 p-gutter-xl max-w-[260px] flex flex-col gap-gutter-sm">
+            <span data-component-id="badge-status" data-component-type="badge" data-component-variant="status" class="self-start inline-flex items-center px-gutter-sm py-gutter-xs rounded-full bg-light-secondary-container text-light-on-secondary-container">
+              <span class="font-body text-label-sm" data-design-text-token="label-sm">UP TO 30% OFF</span>
+            </span>
+            <h1 data-component-id="typography-display" data-component-type="typography" data-component-variant="display" data-design-text-token="display-lg-mobile" class="font-display text-display-lg-mobile text-light-on-primary text-balance" data-i18n="hero_title">Everyday Tech &amp; Craft, Delivered</h1>
+            <p class="font-body text-body-md text-light-inverse-on-surface" data-design-text-token="body-md">
+              100% authentic gear with official BD warranty.
+            </p>
+            <div class="pt-gutter-xs">
+              <a href="#flash-sale" data-component-id="button-secondary" data-component-type="button" data-component-variant="secondary" class="inline-flex items-center gap-gutter-xs px-gutter-lg py-gutter-sm rounded-full bg-light-secondary text-light-on-secondary font-body text-label-lg transition-colors duration-state-change ease-state-change">
+                <span data-design-text-token="label-lg">Shop Flash Sale</span>
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_forward</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Featured Categories -->
+      <section aria-labelledby="categories-heading" class="flex flex-col gap-gutter-md">
+        <div class="flex items-center justify-between">
+          <h2 id="categories-heading" class="font-headline text-headline-md text-light-on-surface dark:text-dark-on-surface" data-design-text-token="headline-md">Shop by Category</h2>
+          <a href="#all-categories" class="font-body text-label-lg text-light-primary dark:text-dark-primary" data-design-text-token="label-lg">View all</a>
+        </div>
+        <div class="flex items-stretch gap-gutter-md overflow-x-auto no-scrollbar pb-gutter-xs">
+          <a href="#electronics" data-component-id="card-interactive" data-component-type="card" data-component-variant="interactive" class="shrink-0 w-24 rounded-md bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col items-center text-center gap-gutter-xs">
+            <span class="material-symbols-outlined text-[24px] text-light-primary dark:text-dark-primary">headphones</span>
+            <span class="font-title text-label-lg text-light-on-surface dark:text-dark-on-surface" data-design-text-token="label-lg">Audio</span>
+          </a>
+          <a href="#fashion" data-component-id="card-interactive" data-component-type="card" data-component-variant="interactive" class="shrink-0 w-24 rounded-md bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col items-center text-center gap-gutter-xs">
+            <span class="material-symbols-outlined text-[24px] text-light-primary dark:text-dark-primary">checkroom</span>
+            <span class="font-title text-label-lg text-light-on-surface dark:text-dark-on-surface" data-design-text-token="label-lg">Fashion</span>
+          </a>
+          <a href="#wearables" data-component-id="card-interactive" data-component-type="card" data-component-variant="interactive" class="shrink-0 w-24 rounded-md bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col items-center text-center gap-gutter-xs">
+            <span class="material-symbols-outlined text-[24px] text-light-primary dark:text-dark-primary">watch</span>
+            <span class="font-title text-label-lg text-light-on-surface dark:text-dark-on-surface" data-design-text-token="label-lg">Watches</span>
+          </a>
+          <a href="#home" data-component-id="card-interactive" data-component-type="card" data-component-variant="interactive" class="shrink-0 w-24 rounded-md bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col items-center text-center gap-gutter-xs">
+            <span class="material-symbols-outlined text-[24px] text-light-primary dark:text-dark-primary">kettle</span>
+            <span class="font-title text-label-lg text-light-on-surface dark:text-dark-on-surface" data-design-text-token="label-lg">Home</span>
+          </a>
+          <a href="#bags" data-component-id="card-interactive" data-component-type="card" data-component-variant="interactive" class="shrink-0 w-24 rounded-md bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col items-center text-center gap-gutter-xs">
+            <span class="material-symbols-outlined text-[24px] text-light-primary dark:text-dark-primary">backpack</span>
+            <span class="font-title text-label-lg text-light-on-surface dark:text-dark-on-surface" data-design-text-token="label-lg">Travel</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Flash Sale Section -->
+      <section id="flash-sale" aria-labelledby="flash-heading" class="flex flex-col gap-gutter-md">
+        <div class="flex items-center justify-between gap-gutter-sm">
+          <div class="flex items-center gap-gutter-sm">
+            <span class="material-symbols-outlined text-[22px] text-light-secondary dark:text-dark-secondary">bolt</span>
+            <h2 id="flash-heading" class="font-headline text-headline-md text-light-on-surface dark:text-dark-on-surface" data-design-text-token="headline-md">Flash Sale</h2>
+          </div>
+          <div class="inline-flex items-center gap-gutter-xs px-gutter-sm py-gutter-xs rounded bg-light-secondary-container/20 dark:bg-dark-secondary-container text-light-secondary dark:text-dark-on-secondary-container font-mono text-mono-md tabular-nums">
+            <span id="countdown-timer" data-design-text-token="mono-md">04:18:32</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-gutter-md items-stretch">
+          <!-- Product 1 -->
+          <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="h-full rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col justify-between gap-gutter-sm">
+            <div class="flex flex-col gap-gutter-sm">
+              <div class="relative rounded overflow-hidden bg-light-surface-container-low dark:bg-dark-surface-container">
+                <img src="https://lh3.googleusercontent.com/aida/ALJJyrDkJafx8RO0T1tV5oN_JjTEiIb7OY8ZOckLnrsU7B6am7b0-vjX_BByFPGWTdI0UuqD5RA_FsZQA6C_UrwHJGfeKBr_VV0GkCDoAD8-lHxj-ibbmdCarzME-lycXoDYi4LeoHJY4YY8uQdXAVIbooHWkcNICBBdx3KCoiNnhJ9c_YMetjIV-oqi9hEAFHaOKWVPVowHQZYTtiWvk4wjC8M7UQn5wI1OjbQyR3moR5tzL-Bh-NuW9LH_hvCWn_no" alt="Shikder SoundPro ANC Headphones" class="w-full h-36 object-cover">
+                <span class="absolute top-gutter-xs left-gutter-xs px-gutter-xs py-0.5 rounded-full bg-light-secondary text-light-on-secondary font-body text-label-sm tabular-nums" data-design-text-token="label-sm">-17%</span>
+              </div>
+              <div class="flex flex-col gap-gutter-xs">
+                <h3 class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">SoundPro ANC</h3>
+                <p class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">4.8 ★ (142)</p>
+                <div class="flex items-baseline gap-gutter-xs">
+                  <span class="font-title text-title-lg text-light-primary dark:text-dark-primary tabular-nums" data-design-text-token="title-lg">৳3,490</span>
+                  <span class="font-body text-label-sm text-light-outline dark:text-dark-outline line-through tabular-nums" data-design-text-token="label-sm">৳4,200</span>
+                </div>
+              </div>
+            </div>
+            <footer>
+              <button type="button" class="add-to-cart-btn w-full inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg transition-colors duration-state-change ease-state-change active:scale-95">
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">shopping_bag</span>
+                <span data-design-text-token="label-lg">Add to Cart</span>
+              </button>
+            </footer>
+          </article>
+
+          <!-- Product 2 -->
+          <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="h-full rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col justify-between gap-gutter-sm">
+            <div class="flex flex-col gap-gutter-sm">
+              <div class="relative rounded overflow-hidden bg-light-surface-container-low dark:bg-dark-surface-container">
+                <img src="https://lh3.googleusercontent.com/aida/ALJJyrBp9U-W7V4AfmMDpRIQWL_9U48eDg1TbS8n5n9MAA0Mn_xaV551Hawk8zBE2GWr6XdmYLVuieOxhiy4mIJf2dkjJP76kL4rcFzrMIV4PCTPT1dFYAFXk_9MSixE8wXBmdLXfRxv3vZDth1zA6oxo3ebmySBgRjbc1tLq5eHbzfg5VkJEh4MA6yuHyXq19xzDAlOIMYzopxS6vi7rd-6p-6bqnDuZ1h-lakUuUaShe9BI00Hqj_hflEgwz0" alt="Amazefit Pulse AMOLED Watch" class="w-full h-36 object-cover">
+                <span class="absolute top-gutter-xs left-gutter-xs px-gutter-xs py-0.5 rounded-full bg-light-secondary text-light-on-secondary font-body text-label-sm tabular-nums" data-design-text-token="label-sm">-22%</span>
+              </div>
+              <div class="flex flex-col gap-gutter-xs">
+                <h3 class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">Pulse AMOLED Watch</h3>
+                <p class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">4.9 ★ (98)</p>
+                <div class="flex items-baseline gap-gutter-xs">
+                  <span class="font-title text-title-lg text-light-primary dark:text-dark-primary tabular-nums" data-design-text-token="title-lg">৳4,290</span>
+                  <span class="font-body text-label-sm text-light-outline dark:text-dark-outline line-through tabular-nums" data-design-text-token="label-sm">৳5,500</span>
+                </div>
+              </div>
+            </div>
+            <footer>
+              <button type="button" class="add-to-cart-btn w-full inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg transition-colors duration-state-change ease-state-change active:scale-95">
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">shopping_bag</span>
+                <span data-design-text-token="label-lg">Add to Cart</span>
+              </button>
+            </footer>
+          </article>
+        </div>
+      </section>
+
+      <!-- Promotional Coupon Banner -->
+      <section aria-label="Special coupon offer" class="rounded-md bg-light-primary-container text-light-on-primary p-gutter-lg flex items-center justify-between gap-gutter-md">
+        <div class="flex flex-col gap-gutter-xs min-w-0">
+          <span class="font-body text-label-sm text-light-on-primary-container" data-design-text-token="label-sm">SPECIAL OFFER</span>
+          <h3 class="font-headline text-title-lg text-light-on-primary truncate" data-design-text-token="title-lg">৳250 Off Orders ৳2,000+</h3>
+          <p class="font-body text-body-md text-light-on-primary-container" data-design-text-token="body-md">Apply code at checkout</p>
+        </div>
+        <span class="shrink-0 px-gutter-md py-gutter-sm rounded bg-light-surface text-light-primary font-mono text-mono-md" data-design-text-token="mono-md">SHIKDER250</span>
+      </section>
+
+      <!-- Trending / Best-Selling / New Arrivals Tabs -->
+      <section id="tabs-section" aria-labelledby="discover-heading" class="flex flex-col gap-gutter-md">
+        <div class="flex items-center justify-between">
+          <h2 id="discover-heading" class="font-headline text-headline-md text-light-on-surface dark:text-dark-on-surface" data-design-text-token="headline-md">Curated Picks</h2>
+        </div>
+
+        <!-- Tab Pills -->
+        <div role="tablist" class="flex items-center gap-gutter-sm overflow-x-auto no-scrollbar">
+          <button role="tab" aria-selected="true" data-tab="trending" class="tab-btn px-gutter-lg py-gutter-xs rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg whitespace-nowrap">
+            <span data-design-text-token="label-lg">Trending</span>
+          </button>
+          <button role="tab" aria-selected="false" data-tab="bestselling" class="tab-btn px-gutter-lg py-gutter-xs rounded-full bg-light-surface-container dark:bg-dark-surface-container text-light-on-surface-variant dark:text-dark-on-surface-variant font-body text-label-lg whitespace-nowrap">
+            <span data-design-text-token="label-lg">Best Selling</span>
+          </button>
+          <button role="tab" aria-selected="false" data-tab="arrivals" class="tab-btn px-gutter-lg py-gutter-xs rounded-full bg-light-surface-container dark:bg-dark-surface-container text-light-on-surface-variant dark:text-dark-on-surface-variant font-body text-label-lg whitespace-nowrap">
+            <span data-design-text-token="label-lg">New Arrivals</span>
+          </button>
+        </div>
+
+        <!-- Tab Panel: Trending (Active) -->
+        <div id="panel-trending" role="tabpanel" class="grid grid-cols-2 gap-gutter-md items-stretch">
+          <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="h-full rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col justify-between gap-gutter-sm">
+            <div class="flex flex-col gap-gutter-sm">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrDgF46VgVZF72FXzoTuWPGIoYZf2U4nDu9wtaKILfkFZFXUze8mu8ykbaqtWthys4MnM7zUyJcPMYs-fYbd521F-NAH2y_b8cfuEFvNpQqtBwff_Uqa-4mPyVQtY618jnyIwbI2iNVjM0cL0UcFkqu_h3VoXbOmzrYCgI4ywby0AsaR7-yLUpd9jKWDjHXGWec-LzejmeY4sSkw7SiiVnbmnM-kC90rUuNFtip7ZVHRXsgJFKvx" alt="Heritage Emerald Cotton Panjabi" class="w-full h-36 object-cover rounded">
+              <div class="flex flex-col gap-gutter-xs">
+                <h3 class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">Emerald Panjabi</h3>
+                <p class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">4.9 ★ (214)</p>
+                <span class="font-title text-title-lg text-light-primary dark:text-dark-primary tabular-nums" data-design-text-token="title-lg">৳1,850</span>
+              </div>
+            </div>
+            <footer>
+              <button type="button" class="add-to-cart-btn w-full inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg">
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">shopping_bag</span>
+                <span data-design-text-token="label-lg">Add to Cart</span>
+              </button>
+            </footer>
+          </article>
+
+          <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="h-full rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col justify-between gap-gutter-sm">
+            <div class="flex flex-col gap-gutter-sm">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrC_R7uuC5UTofVcwrlq0lDheh6rB-wFT4SHY3MBXqRzixSX_0Hehu9ysfPOX7c9ieNVJpIetFM_B-jJivRYemOePXK7KdcGnZJ34vtZhvkOfZtJQsXBfddD0oUqyaLK_KEwu4aqYlv-Ekv0_-svUQjYcMfINAhdtiyYMdHJmx13IhQGmregE6WTRvhaOsHdRsy_SbRziRHqU0Cz-HKT__NnWw-h1rXlwDxD0m7agndCzcw-Dn1M" alt="AirLite TWS Wireless Earbuds" class="w-full h-36 object-cover rounded">
+              <div class="flex flex-col gap-gutter-xs">
+                <h3 class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">AirLite Earbuds</h3>
+                <p class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">4.7 ★ (89)</p>
+                <span class="font-title text-title-lg text-light-primary dark:text-dark-primary tabular-nums" data-design-text-token="title-lg">৳1,690</span>
+              </div>
+            </div>
+            <footer>
+              <button type="button" class="add-to-cart-btn w-full inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg">
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">shopping_bag</span>
+                <span data-design-text-token="label-lg">Add to Cart</span>
+              </button>
+            </footer>
+          </article>
+        </div>
+
+        <!-- Tab Panel: Best Selling (Hidden) -->
+        <div id="panel-bestselling" role="tabpanel" class="hidden grid grid-cols-2 gap-gutter-md items-stretch">
+          <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="h-full rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col justify-between gap-gutter-sm">
+            <div class="flex flex-col gap-gutter-sm">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrDnddj2I6Y1j0ddGnNi_p4wsxGEvX5ajpwAmvcShF_wX11t_r2anIb1luPQoHgc1SEuPT7eFUxKMjDisY0NMfSf4ePq2YD1OUsvqE9IHzZwnogZeJDjv3cRfaUBl3sUB0x8SezJfJecEQcmEVmUfbeVoJkL8SILN9QnxGoA0zgmFjRJX5PjhYWoDJYEiz7iEagD3ndq3uvDdE0aVlomny3ek0BKyt5IrRSQSNdLVqQiqfxKnTOwhJls" alt="Dhaka Commuter Laptop Backpack" class="w-full h-36 object-cover rounded">
+              <div class="flex flex-col gap-gutter-xs">
+                <h3 class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">Commuter Pack 22L</h3>
+                <p class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">4.9 ★ (310)</p>
+                <span class="font-title text-title-lg text-light-primary dark:text-dark-primary tabular-nums" data-design-text-token="title-lg">৳2,150</span>
+              </div>
+            </div>
+            <footer>
+              <button type="button" class="add-to-cart-btn w-full inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg">
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">shopping_bag</span>
+                <span data-design-text-token="label-lg">Add to Cart</span>
+              </button>
+            </footer>
+          </article>
+
+          <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="h-full rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col justify-between gap-gutter-sm">
+            <div class="flex flex-col gap-gutter-sm">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrAEsmL1dzIRB_5U8Cg7r_JCRf_9BY0n8EktIcza5K6ifnNiBVXK7Swcggm-CR-TaX9aoN_kM21H56Wn0zJFEsMfQGqnvuP4ZMNPNSZse2dTfv78ukdllCbvTsqThEOKpI_tiLIh4AyUacqavz3eazz8hlOewighXEkZAPmoUC2a4QJY02gz4P2l_3EPltf8qKDWQv6WYvWCcskNn_6ApW62IQltFYOFiqNJQX8AVajl3-NMOgK6" alt="BrewMaster 1.5L Steel Electric Kettle" class="w-full h-36 object-cover rounded">
+              <div class="flex flex-col gap-gutter-xs">
+                <h3 class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">BrewMaster Kettle</h3>
+                <p class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">4.8 ★ (175)</p>
+                <span class="font-title text-title-lg text-light-primary dark:text-dark-primary tabular-nums" data-design-text-token="title-lg">৳1,450</span>
+              </div>
+            </div>
+            <footer>
+              <button type="button" class="add-to-cart-btn w-full inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg">
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">shopping_bag</span>
+                <span data-design-text-token="label-lg">Add to Cart</span>
+              </button>
+            </footer>
+          </article>
+        </div>
+
+        <!-- Tab Panel: New Arrivals (Hidden) -->
+        <div id="panel-arrivals" role="tabpanel" class="hidden grid grid-cols-2 gap-gutter-md items-stretch">
+          <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="h-full rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col justify-between gap-gutter-sm">
+            <div class="flex flex-col gap-gutter-sm">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrBp9U-W7V4AfmMDpRIQWL_9U48eDg1TbS8n5n9MAA0Mn_xaV551Hawk8zBE2GWr6XdmYLVuieOxhiy4mIJf2dkjJP76kL4rcFzrMIV4PCTPT1dFYAFXk_9MSixE8wXBmdLXfRxv3vZDth1zA6oxo3ebmySBgRjbc1tLq5eHbzfg5VkJEh4MA6yuHyXq19xzDAlOIMYzopxS6vi7rd-6p-6bqnDuZ1h-lakUuUaShe9BI00Hqj_hflEgwz0" alt="Pulse AMOLED Smartwatch" class="w-full h-36 object-cover rounded">
+              <div class="flex flex-col gap-gutter-xs">
+                <h3 class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">Pulse AMOLED Watch</h3>
+                <p class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">New Arrival</p>
+                <span class="font-title text-title-lg text-light-primary dark:text-dark-primary tabular-nums" data-design-text-token="title-lg">৳4,290</span>
+              </div>
+            </div>
+            <footer>
+              <button type="button" class="add-to-cart-btn w-full inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg">
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">shopping_bag</span>
+                <span data-design-text-token="label-lg">Add to Cart</span>
+              </button>
+            </footer>
+          </article>
+
+          <article data-component-id="card-action" data-component-type="card" data-component-variant="action" class="h-full rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-md flex flex-col justify-between gap-gutter-sm">
+            <div class="flex flex-col gap-gutter-sm">
+              <img src="https://lh3.googleusercontent.com/aida/ALJJyrDkJafx8RO0T1tV5oN_JjTEiIb7OY8ZOckLnrsU7B6am7b0-vjX_BByFPGWTdI0UuqD5RA_FsZQA6C_UrwHJGfeKBr_VV0GkCDoAD8-lHxj-ibbmdCarzME-lycXoDYi4LeoHJY4YY8uQdXAVIbooHWkcNICBBdx3KCoiNnhJ9c_YMetjIV-oqi9hEAFHaOKWVPVowHQZYTtiWvk4wjC8M7UQn5wI1OjbQyR3moR5tzL-Bh-NuW9LH_hvCWn_no" alt="SoundPro ANC Headphones" class="w-full h-36 object-cover rounded">
+              <div class="flex flex-col gap-gutter-xs">
+                <h3 class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">SoundPro ANC</h3>
+                <p class="font-body text-label-sm text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="label-sm">New Arrival</p>
+                <span class="font-title text-title-lg text-light-primary dark:text-dark-primary tabular-nums" data-design-text-token="title-lg">৳3,490</span>
+              </div>
+            </div>
+            <footer>
+              <button type="button" class="add-to-cart-btn w-full inline-flex items-center justify-center gap-gutter-xs px-gutter-md py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg">
+                <span class="material-symbols-outlined text-[16px]" aria-hidden="true">shopping_bag</span>
+                <span data-design-text-token="label-lg">Add to Cart</span>
+              </button>
+            </footer>
+          </article>
+        </div>
+      </section>
+
+      <!-- Customer Reviews -->
+      <section aria-labelledby="reviews-heading" class="flex flex-col gap-gutter-md">
+        <h2 id="reviews-heading" class="font-headline text-headline-md text-light-on-surface dark:text-dark-on-surface" data-design-text-token="headline-md">Verified Buyers</h2>
+        <div class="grid grid-cols-1 gap-gutter-md">
+          <article data-component-id="card-elevated" data-component-type="card" data-component-variant="elevated" class="rounded-md bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-gutter-lg flex flex-col gap-gutter-xs">
+            <div class="flex items-center justify-between gap-gutter-sm">
+              <span class="font-title text-title-md text-light-on-surface dark:text-dark-on-surface truncate" data-design-text-token="title-md">Mahmudul H. • Dhaka</span>
+              <span class="shrink-0 font-body text-label-sm text-success" data-design-text-token="label-sm">5.0 ★ Verified</span>
+            </div>
+            <p class="font-body text-body-md text-light-on-surface-variant dark:text-dark-on-surface-variant text-pretty" data-design-text-token="body-md">
+              &#34;Ordered the ANC headphones at 11 AM and received them by evening via Cash on Delivery. Sealed box and genuine warranty card.&#34;
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Newsletter Subscription -->
+      <section aria-labelledby="newsletter-heading" class="rounded-md bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant p-gutter-lg flex flex-col gap-gutter-md">
+        <div class="flex flex-col gap-gutter-xs">
+          <h2 id="newsletter-heading" class="font-headline text-title-lg text-light-on-surface dark:text-dark-on-surface" data-design-text-token="title-lg">Get Flash Deal Alerts</h2>
+          <p class="font-body text-body-md text-light-on-surface-variant dark:text-dark-on-surface-variant" data-design-text-token="body-md">
+            Weekly new arrivals and Eid coupon codes straight to your inbox.
+          </p>
+        </div>
+        <form id="newsletter-form" class="flex items-center gap-gutter-sm">
+          <input type="email" required placeholder="you@example.com" aria-label="Email address" class="min-w-0 flex-1 rounded-full px-gutter-lg py-gutter-sm bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant text-light-on-surface dark:text-dark-on-surface font-body text-body-md">
+          <button type="submit" class="shrink-0 px-gutter-lg py-gutter-sm rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg">
+            <span data-design-text-token="label-lg">Subscribe</span>
+          </button>
+        </form>
+        <p id="newsletter-msg" class="hidden font-body text-label-sm text-success" data-design-text-token="label-sm">Subscribed! Watch your inbox for SHIKDER250.</p>
+      </section>
+
+      <!-- Footer -->
+      <footer class="border-t border-light-outline-variant dark:border-dark-outline-variant pt-gutter-xl flex flex-col gap-gutter-md text-light-on-surface-variant dark:text-dark-on-surface-variant">
+        <div class="flex flex-wrap gap-x-gutter-lg gap-y-gutter-sm font-body text-label-lg">
+          <a href="#about">About Us</a>
+          <a href="#contact">Contact</a>
+          <a href="#faq">FAQ</a>
+          <a href="#returns">Return Policy</a>
+          <a href="#privacy">Privacy</a>
+          <a href="#terms">Terms</a>
+        </div>
+        <p class="font-body text-label-sm" data-design-text-token="label-sm">
+          SHIKDER SHOP • House 14, Road 6, Banani, Dhaka 1213 • Support: +880 1700-000000
+        </p>
+      </footer>
+    </main>
+
+    <!-- Sticky Bottom Mobile Navigation -->
+    <nav aria-label="Primary mobile navigation" class="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-40 bg-light-surface-bright dark:bg-dark-surface-container-low border-t border-light-outline-variant dark:border-dark-outline-variant px-gutter-md py-gutter-sm grid grid-cols-5 items-center">
+      <a href="#top" class="flex flex-col items-center gap-0.5 text-light-primary dark:text-dark-primary">
+        <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: &#39;FILL&#39; 1;">home</span>
+        <span class="font-body text-label-sm" data-design-text-token="label-sm">Home</span>
+      </a>
+      <a href="#categories-heading" class="flex flex-col items-center gap-0.5 text-light-on-surface-variant dark:text-dark-on-surface-variant">
+        <span class="material-symbols-outlined text-[20px]">grid_view</span>
+        <span class="font-body text-label-sm" data-design-text-token="label-sm">Categories</span>
+      </a>
+      <a href="#flash-sale" class="flex flex-col items-center gap-0.5 text-light-on-surface-variant dark:text-dark-on-surface-variant">
+        <span class="material-symbols-outlined text-[20px]">bolt</span>
+        <span class="font-body text-label-sm" data-design-text-token="label-sm">Deals</span>
+      </a>
+      <a href="#cart" class="flex flex-col items-center gap-0.5 text-light-on-surface-variant dark:text-dark-on-surface-variant">
+        <span class="material-symbols-outlined text-[20px]">shopping_bag</span>
+        <span class="font-body text-label-sm" data-design-text-token="label-sm">Cart</span>
+      </a>
+      <a href="#account" class="flex flex-col items-center gap-0.5 text-light-on-surface-variant dark:text-dark-on-surface-variant">
+        <span class="material-symbols-outlined text-[20px]">person</span>
+        <span class="font-body text-label-sm" data-design-text-token="label-sm">Account</span>
+      </a>
+    </nav>
+  </div>
+
+  <script>
+    // Dark Mode Toggle
+    const themeBtn = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    themeBtn?.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      themeIcon.textContent = isDark ? 'light_mode' : 'dark_mode';
+    });
+
+    // Search Suggestions Toggle
+    const searchInput = document.getElementById('search-input');
+    const suggestions = document.getElementById('search-suggestions');
+    searchInput?.addEventListener('focus', () => suggestions?.classList.remove('hidden'));
+    searchInput?.addEventListener('blur', () => setTimeout(() => suggestions?.classList.add('hidden'), 150));
+
+    // Tabs Switcher
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const panels = {
+      trending: document.getElementById('panel-trending'),
+      bestselling: document.getElementById('panel-bestselling'),
+      arrivals: document.getElementById('panel-arrivals'),
+    };
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab');
+        tabBtns.forEach((b) => {
+          const active = b.getAttribute('data-tab') === target;
+          b.setAttribute('aria-selected', String(active));
+          b.className = active
+            ? 'tab-btn px-gutter-lg py-gutter-xs rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary font-body text-label-lg whitespace-nowrap'
+            : 'tab-btn px-gutter-lg py-gutter-xs rounded-full bg-light-surface-container dark:bg-dark-surface-container text-light-on-surface-variant dark:text-dark-on-surface-variant font-body text-label-lg whitespace-nowrap';
+        });
+        Object.entries(panels).forEach(([key, el]) => {
+          if (el) el.classList.toggle('hidden', key !== target);
+        });
+      });
+    });
+
+    // Live Add-to-Cart Counter
+    const cartBadge = document.getElementById('cart-badge');
+    document.querySelectorAll('.add-to-cart-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const current = parseInt(cartBadge?.textContent || '0', 10);
+        if (cartBadge) cartBadge.textContent = String(current + 1);
+      });
+    });
+
+    // Newsletter Feedback
+    document.getElementById('newsletter-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      document.getElementById('newsletter-msg')?.classList.remove('hidden');
+    });
+
+    // Bilingual EN / BN Quick Preview Toggle
+    let isBn = false;
+    document.getElementById('lang-toggle')?.addEventListener('click', () => {
+      isBn = !isBn;
+      const ann = document.querySelector('[data-i18n="announcement"]');
+      const hero = document.querySelector('[data-i18n="hero_title"]');
+      if (ann) ann.textContent = isBn ? '৳১,৫০০+ অর্ডারে ফ্রি ঢাকা ডেলিভারি • ৬৪ জেলায় ক্যাশ অন ডেলিভারি' : 'Free Dhaka delivery over ৳1,500 • COD across 64 districts';
+      if (hero) hero.textContent = isBn ? 'প্রতিদিনের সেরা প্রযুক্তি ও ফ্যাশন, দ্রুত ডেলিভারি' : 'Everyday Tech & Craft, Delivered';
+    });
+  </script>
+
+
+</body></html>

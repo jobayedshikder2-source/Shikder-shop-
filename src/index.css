@@ -1,0 +1,101 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-success: #137333;
+  --color-on-success: #FFFFFF;
+  --color-warning: #B06000;
+  --color-on-warning: #FFFFFF;
+
+  --color-light-primary: #004331;
+  --color-light-on-primary: #FFFFFF;
+  --color-light-primary-container: #0D5C46;
+  --color-light-on-primary-container: #8CD2B6;
+  --color-light-secondary: #A63B00;
+  --color-light-on-secondary: #FFFFFF;
+  --color-light-secondary-container: #FF793F;
+  --color-light-on-secondary-container: #652100;
+  --color-light-tertiary: #612922;
+  --color-light-on-tertiary: #FFFFFF;
+  --color-light-error: #BA1A1A;
+  --color-light-on-error: #FFFFFF;
+  --color-light-error-container: #FFDAD6;
+  --color-light-on-error-container: #93000A;
+  --color-light-background: #F3FBF6;
+  --color-light-on-background: #151D1A;
+  --color-light-surface: #F3FBF6;
+  --color-light-surface-dim: #D3DCD7;
+  --color-light-surface-bright: #FFFFFF;
+  --color-light-surface-container-lowest: #FFFFFF;
+  --color-light-surface-container-low: #EDF6F0;
+  --color-light-surface-container: #E7F0EB;
+  --color-light-surface-container-high: #E2EAE5;
+  --color-light-surface-container-highest: #DCE5DF;
+  --color-light-on-surface: #151D1A;
+  --color-light-surface-variant: #DBE5DE;
+  --color-light-on-surface-variant: #3F4944;
+  --color-light-outline: #6F7974;
+  --color-light-outline-variant: #BFC9C2;
+
+  --color-dark-primary: #8ED5B9;
+  --color-dark-on-primary: #003829;
+  --color-dark-primary-container: #0D5C46;
+  --color-dark-on-primary-container: #8CD2B6;
+  --color-dark-secondary: #FFB599;
+  --color-dark-on-secondary: #5A1C00;
+  --color-dark-secondary-container: #AE3E01;
+  --color-dark-on-secondary-container: #FFD8CA;
+  --color-dark-tertiary: #FFB4A9;
+  --color-dark-on-tertiary: #552019;
+  --color-dark-error: #FFB4AB;
+  --color-dark-on-error: #690005;
+  --color-dark-error-container: #93000A;
+  --color-dark-on-error-container: #FFDAD6;
+  --color-dark-background: #0D1512;
+  --color-dark-on-background: #DCE5DF;
+  --color-dark-surface: #0D1512;
+  --color-dark-surface-dim: #0D1512;
+  --color-dark-surface-bright: #333B38;
+  --color-dark-surface-container-lowest: #08100D;
+  --color-dark-surface-container-low: #151D1A;
+  --color-dark-surface-container: #19211E;
+  --color-dark-surface-container-high: #242C29;
+  --color-dark-surface-container-highest: #2E3733;
+  --color-dark-on-surface: #DCE5DF;
+  --color-dark-surface-variant: #3F4944;
+  --color-dark-on-surface-variant: #BFC9C2;
+  --color-dark-outline: #89938D;
+  --color-dark-outline-variant: #3F4944;
+
+  --font-display: "Mulish", sans-serif;
+  --font-headline: "Mulish", sans-serif;
+  --font-title: "Instrument Sans", sans-serif;
+  --font-body: "Instrument Sans", sans-serif;
+  --font-mono: "Source Code Pro", monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  .dark body {
+    letter-spacing: 0.005em;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
