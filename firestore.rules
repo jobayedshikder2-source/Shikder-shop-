@@ -384,7 +384,7 @@ service cloud.firestore {
           incoming().diff(existing()).affectedKeys().hasOnly(['stockQuantity', 'soldCount', 'updatedAt']) &&
           incoming().stockQuantity >= 0 &&
           incoming().stockQuantity < existing().stockQuantity &&
-          incoming().soldCount == existing().soldCount + (existing().stockQuantity - incoming().stockQuantity) &&
+          ((!('soldCount' in existing()) && incoming().soldCount == (existing().stockQuantity - incoming().stockQuantity)) || ('soldCount' in existing() && incoming().soldCount == existing().soldCount + (existing().stockQuantity - incoming().stockQuantity))) &&
           incoming().updatedAt == request.time
         )
       );
@@ -435,7 +435,7 @@ service cloud.firestore {
     // 8. orders/{orderId}
     // =========================================================================
     match /orders/{orderId} {
-      allow get: if isValidId(orderId) && isSignedIn() && ((resource != null && existing().userId == request.auth.uid) || isAdmin());
+      allow get: if isValidId(orderId) && isSignedIn() && (resource == null || existing().userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
       allow create: if isValidId(orderId) && isSignedIn() && isValidOrder(incoming()) &&
         orderId == incoming().idempotencyKey &&
@@ -490,14 +490,14 @@ service cloud.firestore {
     // 10. coupons/{code}
     // =========================================================================
     match /coupons/{code} {
-      allow get: if isValidId(code) && (isAdmin() || (resource != null && existing().isActive == true));
+      allow get: if isValidId(code) && (isAdmin() || resource == null || existing().isActive == true);
       allow list: if isBootstrappedAdmin();
       allow create: if isValidId(code) && isAdmin() && isValidCoupon(incoming());
       allow update: if isValidId(code) && isSignedIn() && isValidCoupon(incoming()) && (
         isAdmin() || (
           existing().isActive == true &&
           incoming().diff(existing()).affectedKeys().hasOnly(['usedCount']) &&
-          incoming().usedCount == existing().usedCount + 1 &&
+          ((!('usedCount' in existing()) && incoming().usedCount == 1) || ('usedCount' in existing() && incoming().usedCount == existing().usedCount + 1)) &&
           (!('usageLimit' in existing()) || existing().usageLimit == 0 || incoming().usedCount <= existing().usageLimit)
         )
       );
@@ -518,7 +518,7 @@ service cloud.firestore {
     // 12. notifications/{notificationId}
     // =========================================================================
     match /notifications/{notificationId} {
-      allow get: if isValidId(notificationId) && isSignedIn() && ((resource != null && existing().userId == request.auth.uid) || isAdmin());
+      allow get: if isValidId(notificationId) && isSignedIn() && (resource == null || existing().userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
       allow create: if isValidId(notificationId) && isSignedIn() && isValidNotification(incoming()) &&
         (isAdmin() || (incoming().userId == request.auth.uid && incoming().targetRole == 'customer')) &&
@@ -536,7 +536,7 @@ service cloud.firestore {
     // 13. returns/{returnId}
     // =========================================================================
     match /returns/{returnId} {
-      allow get: if isValidId(returnId) && isSignedIn() && ((resource != null && existing().userId == request.auth.uid) || isAdmin());
+      allow get: if isValidId(returnId) && isSignedIn() && (resource == null || existing().userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
       allow create: if isValidId(returnId) && isSignedIn() && isValidReturnRequest(incoming()) &&
         incoming().userId == request.auth.uid &&
@@ -553,7 +553,7 @@ service cloud.firestore {
     // 14. refunds/{refundId}
     // =========================================================================
     match /refunds/{refundId} {
-      allow get: if isValidId(refundId) && isSignedIn() && ((resource != null && existing().userId == request.auth.uid) || isAdmin());
+      allow get: if isValidId(refundId) && isSignedIn() && (resource == null || existing().userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
       allow create: if isValidId(refundId) && isAdmin() && isValidRefundRecord(incoming()) &&
         incoming().createdAt == request.time;

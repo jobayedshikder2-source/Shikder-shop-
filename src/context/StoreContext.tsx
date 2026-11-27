@@ -151,7 +151,7 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
 
   const refreshCatalog = useCallback(async () => {
     try {
-      const includeAll = isBootstrappedAdminUser(auth.currentUser) || profile?.role === 'admin';
+      const includeAll = isBootstrappedAdminUser(auth.currentUser);
       const data = await fetchStorefrontCatalog(includeAll);
       if (data.products.length > 0) {
         setProducts(data.products);
@@ -166,7 +166,7 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
     } catch (err) {
       console.warn('Catalog sync warning:', err);
     }
-  }, [profile?.role]);
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (!auth.currentUser) {
@@ -192,15 +192,20 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
           const prof = await ensureUserProfile(firebaseUser);
           setProfile(prof);
           if (isBootstrappedAdminUser(firebaseUser)) {
-            const seeded = await seedInitialCatalogIfEmpty(firebaseUser);
-            if (seeded) await refreshCatalog();
+            await seedInitialCatalogIfEmpty(firebaseUser);
+            await refreshCatalog();
           }
           const [dbCart, dbWish, dbNotifs] = await Promise.all([
             fetchUserCart(firebaseUser.uid).catch(() => []),
             fetchUserWishlist(firebaseUser.uid).catch(() => []),
             fetchUserNotifications(firebaseUser.uid).catch(() => []),
           ]);
-          const guestCart: CartItem[] = JSON.parse(localStorage.getItem(GUEST_CART_KEY) || '[]');
+          let guestCart: CartItem[] = [];
+          try {
+            guestCart = JSON.parse(localStorage.getItem(GUEST_CART_KEY) || '[]');
+          } catch {
+            guestCart = [];
+          }
           if (guestCart.length > 0) {
             const merged = [...dbCart];
             for (const item of guestCart) {
@@ -222,6 +227,7 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
       } else {
         setProfile(null);
         setNotifications([]);
+        refreshCatalog();
       }
       setAuthReady(true);
     });

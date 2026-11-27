@@ -63,6 +63,26 @@ export function isBootstrappedAdminUser(user: User | null): boolean {
   return Boolean(user && user.email === BOOTSTRAPPED_ADMIN_EMAIL && user.emailVerified);
 }
 
+function toEpochMs(value: unknown): number {
+  if (!value) return 0;
+  if (typeof value === 'string') {
+    const t = Date.parse(value);
+    return Number.isNaN(t) ? 0 : t;
+  }
+  if (typeof value === 'number') return value;
+  if (typeof value === 'object' && 'toMillis' in value && typeof (value as {toMillis: () => number}).toMillis === 'function') {
+    return (value as {toMillis: () => number}).toMillis();
+  }
+  if (typeof value === 'object' && 'seconds' in value && typeof (value as {seconds: number}).seconds === 'number') {
+    return (value as {seconds: number}).seconds * 1000;
+  }
+  return 0;
+}
+
+function sortByCreatedAtDesc<T extends {createdAt?: unknown}>(items: T[]): T[] {
+  return [...items].sort((a, b) => toEpochMs(b.createdAt) - toEpochMs(a.createdAt));
+}
+
 export async function ensureUserProfile(user: User): Promise<UserProfile> {
   const path = `users/${user.uid}`;
   try {
@@ -76,7 +96,7 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
       if (!adminSnap.exists()) {
         await setDoc(adminRef, {
           uid: user.uid,
-          email: user.email || BOOTSTRAPPED_ADMIN_EMAIL,
+          email: (user.email || BOOTSTRAPPED_ADMIN_EMAIL).trim().slice(0, 200),
           role: 'admin',
           createdAt: serverTimestamp(),
         });
@@ -84,33 +104,40 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
     }
 
     if (!snap.exists()) {
+      const safeName = (user.displayName || user.email?.split('@')[0] || 'Customer').trim().slice(0, 120) || 'Customer';
+      const safeEmail = (user.email || 'user@shikdershop.bd').trim().slice(0, 200);
+      const safePhoto = (user.photoURL || '').trim().slice(0, 500);
       const newProfile: Record<string, unknown> = {
         uid: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || 'Customer',
-        email: user.email || '',
+        name: safeName,
+        email: safeEmail,
         role: isBootstrapAdmin ? 'admin' : 'customer',
-        photoURL: user.photoURL || '',
+        photoURL: safePhoto,
         pushEnabled: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
       await setDoc(userRef, newProfile);
-      await setDoc(doc(db, 'notifications', `welcome-${user.uid}`), {
-        userId: user.uid,
-        targetRole: 'customer',
-        title: 'Welcome to SHIKDER SHOP',
-        body: 'Enjoy Cash on Delivery across 64 districts and use SHIKDER250 for ৳250 off.',
-        type: 'welcome',
-        isRead: false,
-        link: '/products',
-        createdAt: serverTimestamp(),
-      });
+      const welcomeRef = doc(db, 'notifications', `welcome-${user.uid}`);
+      const welcomeSnap = await getDoc(welcomeRef).catch(() => null);
+      if (!welcomeSnap?.exists()) {
+        await setDoc(welcomeRef, {
+          userId: user.uid,
+          targetRole: 'customer',
+          title: 'Welcome to SHIKDER SHOP',
+          body: 'Enjoy Cash on Delivery across 64 districts and use SHIKDER250 for ৳250 off.',
+          type: 'welcome',
+          isRead: false,
+          link: '/products',
+          createdAt: serverTimestamp(),
+        }).catch(() => {});
+      }
       return {
         uid: user.uid,
-        name: String(newProfile.name),
-        email: String(newProfile.email),
+        name: safeName,
+        email: safeEmail,
         role: isBootstrapAdmin ? 'admin' : 'customer',
-        photoURL: user.photoURL || '',
+        photoURL: safePhoto,
         pushEnabled: false,
       };
     }
@@ -135,8 +162,21 @@ export async function updateCustomerProfile(
 ) {
   const path = `users/${uid}`;
   try {
+    const cleanUpdates: Record<string, unknown> = {};
+    if (updates.name !== undefined) cleanUpdates.name = updates.name.trim().slice(0, 120) || 'Customer';
+    if (updates.email !== undefined) cleanUpdates.email = updates.email.trim().slice(0, 200);
+    if (updates.phone !== undefined) cleanUpdates.phone = updates.phone.trim().slice(0, 20);
+    if (updates.photoURL !== undefined) cleanUpdates.photoURL = updates.photoURL.trim().slice(0, 500);
+    if (updates.division !== undefined) cleanUpdates.division = updates.division.trim().slice(0, 60);
+    if (updates.district !== undefined) cleanUpdates.district = updates.district.trim().slice(0, 60);
+    if (updates.upazila !== undefined) cleanUpdates.upazila = updates.upazila.trim().slice(0, 80);
+    if (updates.area !== undefined) cleanUpdates.area = updates.area.trim().slice(0, 100);
+    if (updates.fullAddress !== undefined) cleanUpdates.fullAddress = updates.fullAddress.trim().slice(0, 300);
+    if (updates.pushEnabled !== undefined) cleanUpdates.pushEnabled = Boolean(updates.pushEnabled);
+    if (updates.fcmToken !== undefined) cleanUpdates.fcmToken = updates.fcmToken.trim().slice(0, 500);
+
     await updateDoc(doc(db, 'users', uid), {
-      ...updates,
+      ...cleanUpdates,
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
@@ -218,7 +258,7 @@ export async function seedInitialCatalogIfEmpty(user: User): Promise<boolean> {
 export async function fetchStorefrontCatalog(includeInactive = false) {
   try {
     const prodQuery = includeInactive
-      ? query(collection(db, 'products'), orderBy('createdAt', 'desc'))
+      ? query(collection(db, 'products'))
       : query(collection(db, 'products'), where('isActive', '==', true));
     const catQuery = includeInactive
       ? query(collection(db, 'categories'))
@@ -240,7 +280,9 @@ export async function fetchStorefrontCatalog(includeInactive = false) {
       getDoc(doc(db, 'settings', 'website')).catch(() => null),
     ]);
 
-    const products = prodSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Product, 'id'>)}));
+    const products = sortByCreatedAtDesc(
+      prodSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Product, 'id'>)}))
+    );
     const categories = catSnap.docs
       .map((d) => ({id: d.id, ...(d.data() as Omit<Category, 'id'>)}))
       .sort((a, b) => (a.sortOrder ?? 99) - (b.sortOrder ?? 99));
@@ -400,34 +442,63 @@ export async function placeTransactionalOrder(params: {
         ? (shipSnap.data().data as ShippingSettings)
         : DEFAULT_SHIPPING_SETTINGS;
 
+      const uniqueProductIds = Array.from(new Set(cartItems.map((item) => item.productId)));
       const productSnaps = await Promise.all(
-        cartItems.map((item) => tx.get(doc(db, 'products', item.productId)))
+        uniqueProductIds.map((pid) => tx.get(doc(db, 'products', pid)))
       );
-
-      let subtotal = 0;
-      const snapshots: OrderItemSnapshot[] = [];
-      const stockUpdates: {ref: ReturnType<typeof doc>; newStock: number; newSold: number}[] = [];
-
-      for (let i = 0; i < cartItems.length; i++) {
-        const cartItem = cartItems[i];
-        const snap = productSnaps[i];
-        if (!snap.exists()) {
-          throw new Error(`Product ${cartItem.productId} is no longer available.`);
+      const productMap = new Map<string, Product>();
+      for (const snap of productSnaps) {
+        if (snap.exists()) {
+          productMap.set(snap.id, snap.data() as Product);
         }
-        const prod = snap.data() as Product;
+      }
+
+      const normalizedCode = couponCode?.trim().toUpperCase() || '';
+      const couponRef = normalizedCode ? doc(db, 'coupons', normalizedCode) : null;
+      const couponSnap = couponRef ? await tx.get(couponRef) : null;
+
+      // Aggregate quantities per productId so multi-variant lines never collide
+      const totalQtyByProduct = new Map<string, number>();
+      for (const cartItem of cartItems) {
+        totalQtyByProduct.set(
+          cartItem.productId,
+          (totalQtyByProduct.get(cartItem.productId) || 0) + cartItem.quantity
+        );
+      }
+
+      const stockUpdates: {ref: ReturnType<typeof doc>; newStock: number; newSold: number}[] = [];
+      for (const [productId, totalQty] of totalQtyByProduct.entries()) {
+        const prod = productMap.get(productId);
+        if (!prod) {
+          throw new Error(`Product ${productId} is no longer available.`);
+        }
         if (!prod.isActive) {
           throw new Error(`${prod.name} is currently unavailable.`);
         }
-        if (prod.stockQuantity < cartItem.quantity) {
+        if (prod.stockQuantity < totalQty) {
           throw new Error(`Insufficient stock for ${prod.name}. Only ${prod.stockQuantity} remaining.`);
         }
-        const unitPrice = prod.discountedPrice && prod.discountedPrice > 0 ? prod.discountedPrice : prod.regularPrice;
+        stockUpdates.push({
+          ref: doc(db, 'products', productId),
+          newStock: prod.stockQuantity - totalQty,
+          newSold: (prod.soldCount || 0) + totalQty,
+        });
+      }
+
+      let subtotal = 0;
+      const snapshots: OrderItemSnapshot[] = [];
+      for (const cartItem of cartItems) {
+        const prod = productMap.get(cartItem.productId)!;
+        const unitPrice =
+          prod.discountedPrice && prod.discountedPrice > 0 && prod.discountedPrice < prod.regularPrice
+            ? prod.discountedPrice
+            : prod.regularPrice;
         const lineTotal = unitPrice * cartItem.quantity;
         subtotal += lineTotal;
 
         const variantParts = [cartItem.color, cartItem.size].filter(Boolean);
         snapshots.push({
-          productId: snap.id,
+          productId: cartItem.productId,
           name: prod.name,
           slug: prod.slug,
           image: prod.images?.[0] || '',
@@ -437,32 +508,22 @@ export async function placeTransactionalOrder(params: {
           quantity: cartItem.quantity,
           lineTotal,
         });
-
-        stockUpdates.push({
-          ref: doc(db, 'products', snap.id),
-          newStock: prod.stockQuantity - cartItem.quantity,
-          newSold: (prod.soldCount || 0) + cartItem.quantity,
-        });
       }
 
       let discountAmount = 0;
-      const normalizedCode = couponCode?.trim().toUpperCase() || '';
       let couponRefToUpdate: ReturnType<typeof doc> | null = null;
       let nextUsedCount = 0;
 
-      if (normalizedCode) {
-        const couponSnap = await tx.get(doc(db, 'coupons', normalizedCode));
-        if (couponSnap.exists()) {
-          const coupon = couponSnap.data() as Coupon;
-          const notExpired = !coupon.expiresAt || new Date(coupon.expiresAt).getTime() >= Date.now();
-          const underLimit = !coupon.usageLimit || coupon.usageLimit === 0 || (coupon.usedCount || 0) < coupon.usageLimit;
-          if (coupon.isActive && notExpired && underLimit && subtotal >= coupon.minPurchase) {
-            let calc = coupon.type === 'percentage' ? Math.round((subtotal * coupon.value) / 100) : coupon.value;
-            if (coupon.maxDiscount && coupon.maxDiscount > 0) calc = Math.min(calc, coupon.maxDiscount);
-            discountAmount = Math.min(calc, subtotal);
-            couponRefToUpdate = doc(db, 'coupons', normalizedCode);
-            nextUsedCount = (coupon.usedCount || 0) + 1;
-          }
+      if (couponRef && couponSnap?.exists()) {
+        const coupon = couponSnap.data() as Coupon;
+        const notExpired = !coupon.expiresAt || new Date(coupon.expiresAt).getTime() >= Date.now();
+        const underLimit = !coupon.usageLimit || coupon.usageLimit === 0 || (coupon.usedCount || 0) < coupon.usageLimit;
+        if (coupon.isActive && notExpired && underLimit && subtotal >= coupon.minPurchase) {
+          let calc = coupon.type === 'percentage' ? Math.round((subtotal * coupon.value) / 100) : coupon.value;
+          if (coupon.maxDiscount && coupon.maxDiscount > 0) calc = Math.min(calc, coupon.maxDiscount);
+          discountAmount = Math.min(calc, subtotal);
+          couponRefToUpdate = couponRef;
+          nextUsedCount = (coupon.usedCount || 0) + 1;
         }
       }
 
@@ -472,14 +533,30 @@ export async function placeTransactionalOrder(params: {
         deliveryCharge = 0;
       }
 
-      const totalAmount = Math.max(1, subtotal - discountAmount + deliveryCharge);
+      // Guarantee totalAmount > 0 AND totalAmount == (subtotal - discountAmount + deliveryCharge)
+      const maxAllowedDiscount = deliveryCharge > 0 ? subtotal : Math.max(0, subtotal - 1);
+      discountAmount = Math.min(discountAmount, maxAllowedDiscount);
+      const totalAmount = subtotal - discountAmount + deliveryCharge;
+
+      const safeCustomerInfo: CustomerShippingInfo = {
+        fullName: customerInfo.fullName.trim().slice(0, 120),
+        phone: customerInfo.phone.trim().slice(0, 20),
+        email: customerInfo.email.trim().slice(0, 200),
+        division: customerInfo.division.trim().slice(0, 60),
+        district: customerInfo.district.trim().slice(0, 60),
+        upazila: customerInfo.upazila.trim().slice(0, 80),
+        area: customerInfo.area.trim().slice(0, 100),
+        fullAddress: customerInfo.fullAddress.trim().slice(0, 300),
+        instructions: (customerInfo.instructions || '').trim().slice(0, 240),
+      };
+
       const nowIso = new Date().toISOString();
       const timeline = [
         {
           status: 'Pending',
           note: `Order placed via ${paymentMethod.toUpperCase()}`,
           timestamp: nowIso,
-          actor: customerInfo.fullName,
+          actor: safeCustomerInfo.fullName,
         },
       ];
 
@@ -499,11 +576,11 @@ export async function placeTransactionalOrder(params: {
         orderNumber,
         idempotencyKey,
         userId: uid,
-        customerInfo,
+        customerInfo: safeCustomerInfo,
         items: snapshots,
         subtotal,
         discountAmount,
-        couponCode: normalizedCode,
+        couponCode: normalizedCode.slice(0, 40),
         deliveryCharge,
         totalAmount,
         paymentMethod,
@@ -519,11 +596,11 @@ export async function placeTransactionalOrder(params: {
       tx.set(doc(db, 'notifications', `ord-${idempotencyKey}`), {
         userId: uid,
         targetRole: 'customer',
-        title: `Order ${orderNumber} Confirmed`,
-        body: `Your order of ৳${totalAmount.toLocaleString('en-US')} is pending dispatch.`,
+        title: `Order ${orderNumber} Confirmed`.slice(0, 140),
+        body: `Your order of ৳${totalAmount.toLocaleString('en-US')} is pending dispatch.`.slice(0, 500),
         type: 'order',
         isRead: false,
-        link: `/orders/${idempotencyKey}`,
+        link: `/orders/${idempotencyKey}`.slice(0, 200),
         createdAt: serverTimestamp(),
       });
       tx.set(doc(db, 'carts', uid), {
@@ -542,7 +619,12 @@ export async function placeTransactionalOrder(params: {
 
     return result;
   } catch (error) {
-    if (error instanceof Error && (error.message.includes('Insufficient stock') || error.message.includes('Duplicate order'))) {
+    if (
+      error instanceof Error &&
+      (error.message.includes('Insufficient stock') ||
+        error.message.includes('Duplicate order') ||
+        error.message.includes('unavailable'))
+    ) {
       throw error;
     }
     handleFirestoreError(error, OperationType.WRITE, `orders/${idempotencyKey}`);
@@ -551,9 +633,11 @@ export async function placeTransactionalOrder(params: {
 
 export async function fetchCustomerOrders(uid: string): Promise<Order[]> {
   try {
-    const q = query(collection(db, 'orders'), where('userId', '==', uid), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'orders'), where('userId', '==', uid));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Order, 'id'>)}));
+    return sortByCreatedAtDesc(
+      snap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Order, 'id'>)}))
+    );
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, 'orders');
   }
@@ -655,7 +739,7 @@ export async function cancelCustomerOrder(order: Order) {
         timestamp: new Date().toISOString(),
         actor: 'Customer',
       },
-    ];
+    ].slice(-30);
     await updateDoc(doc(db, 'orders', order.id), {
       orderStatus: 'Cancelled',
       timeline: nextTimeline,
@@ -670,11 +754,12 @@ export async function requestCustomerReturn(order: Order, reason: string) {
   try {
     const batch = writeBatch(db);
     const returnId = `ret-${order.id}`;
+    const safeReason = reason.trim().slice(0, 500);
     batch.set(doc(db, 'returns', returnId), {
       orderId: order.id,
-      orderNumber: order.orderNumber,
+      orderNumber: order.orderNumber.slice(0, 40),
       userId: order.userId,
-      reason,
+      reason: safeReason,
       status: 'requested',
       createdAt: serverTimestamp(),
     });
@@ -684,11 +769,11 @@ export async function requestCustomerReturn(order: Order, reason: string) {
         ...(order.timeline || []),
         {
           status: 'Return Requested',
-          note: reason,
+          note: safeReason,
           timestamp: new Date().toISOString(),
           actor: 'Customer',
         },
-      ],
+      ].slice(-30),
       updatedAt: serverTimestamp(),
     });
     await batch.commit();
@@ -702,8 +787,7 @@ export async function fetchProductReviews(productId: string, uid?: string): Prom
     const approvedQ = query(
       collection(db, 'reviews'),
       where('productId', '==', productId),
-      where('isApproved', '==', true),
-      orderBy('createdAt', 'desc')
+      where('isApproved', '==', true)
     );
     const approvedSnap = await getDocs(approvedQ);
     const reviews = approvedSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Review, 'id'>)}));
@@ -714,11 +798,11 @@ export async function fetchProductReviews(productId: string, uid?: string): Prom
       ownSnap.docs.forEach((d) => {
         const data = d.data() as Omit<Review, 'id'>;
         if (data.productId === productId && !reviews.some((r) => r.id === d.id)) {
-          reviews.unshift({id: d.id, ...data});
+          reviews.push({id: d.id, ...data});
         }
       });
     }
-    return reviews;
+    return sortByCreatedAtDesc(reviews);
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, 'reviews');
   }
@@ -730,9 +814,9 @@ export async function submitProductReview(productId: string, user: User, rating:
     await setDoc(doc(db, 'reviews', reviewId), {
       productId,
       userId: user.uid,
-      userName: user.displayName || user.email?.split('@')[0] || 'Verified Shopper',
+      userName: (user.displayName || user.email?.split('@')[0] || 'Verified Shopper').trim().slice(0, 100) || 'Verified Shopper',
       rating,
-      comment,
+      comment: comment.trim().slice(0, 1000),
       isApproved: isAdminUser,
       createdAt: serverTimestamp(),
     });
@@ -743,9 +827,11 @@ export async function submitProductReview(productId: string, user: User, rating:
 
 export async function fetchUserNotifications(uid: string): Promise<NotificationItem[]> {
   try {
-    const q = query(collection(db, 'notifications'), where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(40));
+    const q = query(collection(db, 'notifications'), where('userId', '==', uid), limit(100));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<NotificationItem, 'id'>)}));
+    return sortByCreatedAtDesc(
+      snap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<NotificationItem, 'id'>)}))
+    ).slice(0, 40);
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, 'notifications');
   }
@@ -792,25 +878,25 @@ async function logAdminAction(user: User, action: string, targetCollection: stri
 export async function fetchAdminWorkspaceData() {
   try {
     const [ordersSnap, usersSnap, couponsSnap, reviewsSnap, returnsSnap, refundsSnap, logsSnap, notifSnap] = await Promise.all([
-      getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(100))),
+      getDocs(query(collection(db, 'orders'), limit(100))),
       getDocs(query(collection(db, 'users'), limit(100))),
       getDocs(collection(db, 'coupons')),
-      getDocs(query(collection(db, 'reviews'), orderBy('createdAt', 'desc'), limit(100))),
-      getDocs(query(collection(db, 'returns'), orderBy('createdAt', 'desc'), limit(50))),
-      getDocs(query(collection(db, 'refunds'), orderBy('createdAt', 'desc'), limit(50))),
-      getDocs(query(collection(db, 'admin_logs'), orderBy('createdAt', 'desc'), limit(60))),
-      getDocs(query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(50))),
+      getDocs(query(collection(db, 'reviews'), limit(100))),
+      getDocs(query(collection(db, 'returns'), limit(50))),
+      getDocs(query(collection(db, 'refunds'), limit(50))),
+      getDocs(query(collection(db, 'admin_logs'), limit(60))),
+      getDocs(query(collection(db, 'notifications'), limit(50))),
     ]);
 
     return {
-      orders: ordersSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Order, 'id'>)})),
+      orders: sortByCreatedAtDesc(ordersSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Order, 'id'>)}))),
       customers: usersSnap.docs.map((d) => ({...(d.data() as UserProfile), uid: d.id})),
       coupons: couponsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Coupon, 'id'>)})),
-      reviews: reviewsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Review, 'id'>)})),
-      returns: returnsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<ReturnRequest, 'id'>)})),
-      refunds: refundsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<RefundRecord, 'id'>)})),
-      logs: logsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<AdminLog, 'id'>)})),
-      notifications: notifSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<NotificationItem, 'id'>)})),
+      reviews: sortByCreatedAtDesc(reviewsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Review, 'id'>)}))),
+      returns: sortByCreatedAtDesc(returnsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<ReturnRequest, 'id'>)}))),
+      refunds: sortByCreatedAtDesc(refundsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<RefundRecord, 'id'>)}))),
+      logs: sortByCreatedAtDesc(logsSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<AdminLog, 'id'>)}))),
+      notifications: sortByCreatedAtDesc(notifSnap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<NotificationItem, 'id'>)}))),
     };
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, 'orders');
@@ -819,23 +905,26 @@ export async function fetchAdminWorkspaceData() {
 
 export async function saveAdminProduct(user: User, id: string | null, data: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) {
   const productId = id || `prod-${data.slug.slice(0, 40)}-${Date.now().toString(36)}`;
+  const {id: _ignoredId, createdAt: _ignoredCreated, updatedAt: _ignoredUpdated, ...cleanData} = data as Product;
   try {
-    if (id) {
-      await updateDoc(doc(db, 'products', productId), {
-        ...data,
+    const prodRef = doc(db, 'products', productId);
+    const existingSnap = id ? await getDoc(prodRef).catch(() => null) : null;
+    if (id && existingSnap?.exists()) {
+      await updateDoc(prodRef, {
+        ...cleanData,
         updatedAt: serverTimestamp(),
       });
-      await logAdminAction(user, 'UPDATE_PRODUCT', 'products', productId, `Updated ${data.name}`);
+      await logAdminAction(user, 'UPDATE_PRODUCT', 'products', productId, `Updated ${cleanData.name}`);
     } else {
-      await setDoc(doc(db, 'products', productId), {
-        ...data,
-        ratingAvg: data.ratingAvg || 5,
-        ratingCount: data.ratingCount || 0,
-        soldCount: data.soldCount || 0,
+      await setDoc(prodRef, {
+        ...cleanData,
+        ratingAvg: cleanData.ratingAvg ?? 5,
+        ratingCount: cleanData.ratingCount ?? 0,
+        soldCount: cleanData.soldCount ?? 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      await logAdminAction(user, 'CREATE_PRODUCT', 'products', productId, `Created ${data.name}`);
+      await logAdminAction(user, 'CREATE_PRODUCT', 'products', productId, `Created ${cleanData.name}`);
     }
     return productId;
   } catch (error) {
@@ -908,20 +997,20 @@ export async function updateAdminOrder(
     await updateDoc(doc(db, 'orders', order.id), {
       orderStatus: updates.orderStatus,
       paymentStatus: updates.paymentStatus,
-      trackingCode: updates.trackingCode,
-      timeline,
+      trackingCode: updates.trackingCode.trim().slice(0, 80),
+      timeline: timeline.slice(-30),
       updatedAt: serverTimestamp(),
     });
     await setDoc(doc(db, 'notifications', `ord-upd-${order.id}-${Date.now()}`), {
       userId: order.userId,
       targetRole: 'customer',
-      title: `Order ${order.orderNumber}: ${updates.orderStatus}`,
-      body: updates.trackingCode
+      title: `Order ${order.orderNumber}: ${updates.orderStatus}`.slice(0, 140),
+      body: (updates.trackingCode
         ? `Tracking reference ${updates.trackingCode} added.`
-        : `Your order status is now ${updates.orderStatus}.`,
+        : `Your order status is now ${updates.orderStatus}.`).slice(0, 500),
       type: 'order_update',
       isRead: false,
-      link: `/orders/${order.id}`,
+      link: `/orders/${order.id}`.slice(0, 200),
       createdAt: serverTimestamp(),
     });
     await logAdminAction(
@@ -937,10 +1026,15 @@ export async function updateAdminOrder(
 }
 
 export async function saveAdminCoupon(user: User, coupon: Omit<Coupon, 'id'>) {
-  const code = coupon.code.toUpperCase();
+  const {id: _ignoredId, ...cleanCoupon} = coupon as Coupon;
+  const code = cleanCoupon.code.trim().toUpperCase();
   try {
-    await setDoc(doc(db, 'coupons', code), {...coupon, code});
-    await logAdminAction(user, 'SAVE_COUPON', 'coupons', code, `Coupon ${code} (${coupon.type}: ${coupon.value})`);
+    await setDoc(doc(db, 'coupons', code), {
+      ...cleanCoupon,
+      code,
+      usedCount: typeof cleanCoupon.usedCount === 'number' ? cleanCoupon.usedCount : 0,
+    });
+    await logAdminAction(user, 'SAVE_COUPON', 'coupons', code, `Coupon ${code} (${cleanCoupon.type}: ${cleanCoupon.value})`);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `coupons/${code}`);
   }
@@ -1015,19 +1109,21 @@ export async function processReturnAndRefundAdmin(
 }
 
 export async function sendAdminNotification(user: User, targetUserId: string, title: string, body: string) {
-  const notifId = `adm-notif-${Date.now()}`;
+  const notifId = `adm-notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const safeTitle = title.trim().slice(0, 140);
+  const safeBody = body.trim().slice(0, 500);
   try {
     await setDoc(doc(db, 'notifications', notifId), {
       userId: targetUserId,
       targetRole: 'customer',
-      title,
-      body,
+      title: safeTitle,
+      body: safeBody,
       type: 'promo',
       isRead: false,
       link: '/products',
       createdAt: serverTimestamp(),
     });
-    await logAdminAction(user, 'SEND_NOTIFICATION', 'notifications', notifId, `${title} -> ${targetUserId}`);
+    await logAdminAction(user, 'SEND_NOTIFICATION', 'notifications', notifId, `${safeTitle} -> ${targetUserId}`.slice(0, 300));
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, `notifications/${notifId}`);
   }

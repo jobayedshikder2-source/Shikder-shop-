@@ -20,7 +20,9 @@ export const CheckoutPage: React.FC = () => {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [idempotencyKey] = useState(() => `ord_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
+  const [idempotencyKey, setIdempotencyKey] = useState(
+    () => `ord_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  );
 
   const {
     register,
@@ -154,7 +156,11 @@ export const CheckoutPage: React.FC = () => {
       showToast(`Order ${order.orderNumber} placed!`);
       navigate(`/orders/${order.id}`);
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Unable to place order');
+      const msg = err instanceof Error ? err.message : 'Unable to place order';
+      if (!msg.includes('Duplicate order submission detected')) {
+        setIdempotencyKey(`ord_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
+      }
+      setErrorMsg(msg);
     } finally {
       setSubmitting(false);
     }

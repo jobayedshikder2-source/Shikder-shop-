@@ -1680,9 +1680,14 @@ export const AdminDashboardPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={async () => {
-                        await saveAdminCoupon(user, {...cp, isActive: !cp.isActive});
-                        await loadWorkspace();
-                        showToast(`Coupon ${cp.code} ${!cp.isActive ? 'activated' : 'paused'}`);
+                        try {
+                          const {id: _id, ...rest} = cp;
+                          await saveAdminCoupon(user, {...rest, isActive: !cp.isActive});
+                          await loadWorkspace();
+                          showToast(`Coupon ${cp.code} ${!cp.isActive ? 'activated' : 'paused'}`);
+                        } catch (err) {
+                          showToast(err instanceof Error ? err.message : 'Unable to update coupon');
+                        }
                       }}
                       className="px-3 py-1 rounded-lg border border-light-outline-variant text-xs font-semibold"
                     >

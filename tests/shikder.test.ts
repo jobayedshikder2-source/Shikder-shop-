@@ -107,5 +107,15 @@ test('Security rules and Dirty Dozen adversarial test suite are present and inta
   assert.match(rulesText, /allow delete:\s*if false;/);
   assert.match(rulesText, /request\.auth\.token\.email_verified == true/);
   assert.match(rulesText, /orderId == incoming\(\)\.idempotencyKey/);
+  assert.match(rulesText, /resource == null \|\| existing\(\)\.userId == request\.auth\.uid/);
   assert.ok(DIRTY_DOZEN_TESTS.length >= 12);
 });
+
+test('Firestore service avoids unindexed where+orderBy queries and aggregates multi-variant stock', () => {
+  const serviceText = fs.readFileSync(new URL('../src/services/firestoreService.ts', import.meta.url), 'utf-8');
+  assert.equal(/where\([^)]+\)\s*,\s*orderBy\(/.test(serviceText), false);
+  assert.equal(/where\([^)]+\)\s*,\s*where\([^)]+\)\s*,\s*orderBy\(/.test(serviceText), false);
+  assert.match(serviceText, /totalQtyByProduct/);
+  assert.match(serviceText, /sortByCreatedAtDesc/);
+});
+
