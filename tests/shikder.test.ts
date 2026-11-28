@@ -139,17 +139,18 @@ test('Firestore service avoids unindexed where+orderBy queries and aggregates mu
   assert.match(serviceText, /sortByCreatedAtDesc/);
 });
 
-test('Authentication supports Google redirect/popup and Email/Password sign-in without phone login', () => {
+test('Authentication uses Google popup sign-in, browserLocalPersistence, onAuthStateChanged, and Email/Password login without redirect storage errors', () => {
   const firebaseText = fs.readFileSync(new URL('../src/lib/firebase.ts', import.meta.url), 'utf-8');
   const contextText = fs.readFileSync(new URL('../src/context/StoreContext.tsx', import.meta.url), 'utf-8');
   const authPageText = fs.readFileSync(new URL('../src/pages/AuthPages.tsx', import.meta.url), 'utf-8');
   const vercelConfig = fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf-8');
 
   assert.match(firebaseText, /getApps\(\)\.length \? getApp\(\) : initializeApp/);
-  assert.match(firebaseText, /indexedDBLocalPersistence/);
+  assert.match(firebaseText, /browserLocalPersistence/);
   assert.match(firebaseText, /formatFirebaseAuthError/);
-  assert.match(contextText, /getRedirectResult/);
-  assert.match(authPageText, /signInWithRedirect/);
+  assert.match(contextText, /onAuthStateChanged/);
+  assert.equal(/blocked cross-site redirect storage/i.test(contextText), false);
+  assert.equal(/signInWithRedirect/.test(authPageText), false);
   assert.match(authPageText, /signInWithPopup/);
   assert.match(authPageText, /signInWithEmailAndPassword/);
   assert.match(authPageText, /createUserWithEmailAndPassword/);

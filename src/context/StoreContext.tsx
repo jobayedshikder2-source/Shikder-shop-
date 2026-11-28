@@ -245,24 +245,22 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
         }
         const result = await redirectResultPromise;
         if (cancelled) return;
-        const hadPendingRedirect = Boolean(sessionStorage.getItem(GOOGLE_REDIRECT_PENDING_KEY));
         sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
 
         if (result?.user) {
+          setRedirectAuthError(null);
           setUser(result.user);
           await syncUserProfile(result.user).catch((profileErr) => {
             console.warn('Redirect profile save warning:', profileErr);
           });
           showToast('Signed in with Google');
-        } else if (hadPendingRedirect && !auth.currentUser) {
-          setRedirectAuthError(
-            'Google redirect did not return a session because your browser blocked cross-site redirect storage. Please use Google sign-in below or enable site cookies.'
-          );
         }
       } catch (err) {
         if (!cancelled) {
           sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
-          setRedirectAuthError(formatFirebaseAuthError(err));
+          if (!auth.currentUser) {
+            setRedirectAuthError(formatFirebaseAuthError(err));
+          }
         }
       } finally {
         if (!cancelled) {
@@ -275,6 +273,7 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
       if (cancelled) return;
       setUser(firebaseUser);
       if (firebaseUser) {
+        sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
         setRedirectAuthError(null);
         try {
           await syncUserProfile(firebaseUser);

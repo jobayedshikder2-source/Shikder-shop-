@@ -87,7 +87,7 @@ export function formatFirebaseAuthError(error: unknown): string {
     case 'auth/invalid-email':
       return 'Please enter a valid email address.';
     case 'auth/popup-blocked':
-      return 'Your browser blocked the Google sign-in popup. Please allow popups or use standard redirect sign-in.';
+      return 'Your browser blocked the Google sign-in popup. Please allow popups for this site in your browser settings and try again.';
     case 'auth/popup-closed-by-user':
     case 'auth/cancelled-popup-request':
       return 'Google sign-in was cancelled before completion. Please try again.';

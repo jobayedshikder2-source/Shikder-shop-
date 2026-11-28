@@ -8,7 +8,6 @@ import {
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
-  signInWithRedirect,
   updateProfile,
 } from 'firebase/auth';
 import {Eye, EyeOff, Loader2, Mail, ShieldCheck} from 'lucide-react';
@@ -36,15 +35,6 @@ function sanitizeRedirectPath(raw: string | null): string {
   return '/profile';
 }
 
-function isEmbeddedIframe(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.self !== window.top;
-  } catch {
-    return true;
-  }
-}
-
 export const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -62,7 +52,7 @@ export const LoginPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AuthTab>('google');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authInfo, setAuthInfo] = useState<string | null>(null);
-  const [busyMode, setBusyMode] = useState<'redirect' | 'popup' | 'email' | null>(null);
+  const [busyMode, setBusyMode] = useState<'popup' | 'email' | null>(null);
 
   // Email / Password state
   const [emailMode, setEmailMode] = useState<'signin' | 'signup'>('signin');
@@ -94,10 +84,11 @@ export const LoginPage: React.FC = () => {
     clearRedirectAuthError();
   };
 
-  const handleGooglePopupSignIn = async () => {
+  const handleGoogleSignIn = async () => {
     setAuthError(null);
     setAuthInfo(null);
     clearRedirectAuthError();
+    sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
     setBusyMode('popup');
     try {
       await authPersistenceReady;
@@ -107,56 +98,17 @@ export const LoginPage: React.FC = () => {
       const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
       await syncUserProfile(cred.user);
 
+      clearRedirectAuthError();
+      sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
       sessionStorage.removeItem(AUTH_REDIRECT_PATH_KEY);
       showToast('Signed in with Google');
       navigate(requestedRedirect, {replace: true});
     } catch (err) {
-      const code =
-        typeof err === 'object' && err !== null && 'code' in err
-          ? String((err as {code?: unknown}).code || '')
-          : '';
-      if (code === 'auth/popup-blocked' && !isEmbeddedIframe()) {
-        try {
-          sessionStorage.setItem(GOOGLE_REDIRECT_PENDING_KEY, String(Date.now()));
-          await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
-          return;
-        } catch (redirectErr) {
-          sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
-          setAuthError(formatFirebaseAuthError(redirectErr));
-        }
-      } else {
-        setAuthError(formatFirebaseAuthError(err));
-      }
+      setAuthError(formatFirebaseAuthError(err));
     } finally {
       setBusyMode(null);
     }
   };
-
-  const handleGoogleRedirectSignIn = async () => {
-    setAuthError(null);
-    setAuthInfo(null);
-    clearRedirectAuthError();
-
-    if (isEmbeddedIframe()) {
-      await handleGooglePopupSignIn();
-      return;
-    }
-
-    setBusyMode('redirect');
-    try {
-      await authPersistenceReady;
-      await setPersistence(auth, browserLocalPersistence).catch(() => ensureBrowserLocalPersistence());
-      sessionStorage.setItem(AUTH_REDIRECT_PATH_KEY, requestedRedirect);
-      sessionStorage.setItem(GOOGLE_REDIRECT_PENDING_KEY, String(Date.now()));
-      await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
-    } catch (err) {
-      sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
-      setAuthError(formatFirebaseAuthError(err));
-      setBusyMode(null);
-    }
-  };
-
-  const handleGoogleSignIn = handleGooglePopupSignIn;
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,25 +248,12 @@ export const LoginPage: React.FC = () => {
               )}
               <span>
                 {checkingRedirect
-                  ? 'Verifying Google sign-in...'
-                  : busyMode === 'redirect'
-                  ? 'Redirecting to Google...'
+                  ? 'Restoring session...'
                   : busyMode === 'popup'
-                  ? 'Connecting to Google...'
+                  ? 'Signing in with Google...'
                   : 'Continue with Google'}
               </span>
             </button>
-
-            {!checkingRedirect && !isEmbeddedIframe() && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={handleGoogleRedirectSignIn}
-                className="w-full py-2.5 px-4 rounded-full border border-light-outline-variant dark:border-dark-outline-variant text-xs font-semibold text-light-on-surface-variant dark:text-dark-on-surface-variant hover:bg-light-surface-container-low dark:hover:bg-dark-surface-container transition-colors disabled:opacity-60"
-              >
-                Having trouble with popup? Sign in with Google Redirect
-              </button>
-            )}
           </div>
         )}
 
