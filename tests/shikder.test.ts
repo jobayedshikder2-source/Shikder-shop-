@@ -119,3 +119,19 @@ test('Firestore service avoids unindexed where+orderBy queries and aggregates mu
   assert.match(serviceText, /sortByCreatedAtDesc/);
 });
 
+test('Google Authentication uses signInWithRedirect, getRedirectResult, IndexedDB persistence, and Vercel SPA rewrites', () => {
+  const firebaseText = fs.readFileSync(new URL('../src/lib/firebase.ts', import.meta.url), 'utf-8');
+  const contextText = fs.readFileSync(new URL('../src/context/StoreContext.tsx', import.meta.url), 'utf-8');
+  const authPageText = fs.readFileSync(new URL('../src/pages/AuthPages.tsx', import.meta.url), 'utf-8');
+  const vercelConfig = fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf-8');
+
+  assert.match(firebaseText, /getApps\(\)\.length \? getApp\(\) : initializeApp/);
+  assert.match(firebaseText, /indexedDBLocalPersistence/);
+  assert.match(firebaseText, /formatFirebaseAuthError/);
+  assert.match(contextText, /getRedirectResult/);
+  assert.match(authPageText, /signInWithRedirect/);
+  assert.match(authPageText, /signInWithPopup/);
+  assert.match(vercelConfig, /\/index\.html/);
+});
+
+

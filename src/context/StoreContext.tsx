@@ -1,6 +1,12 @@
 import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
-import {onAuthStateChanged, signOut, type User} from 'firebase/auth';
-import {auth, testConnection} from '../lib/firebase';
+import {getRedirectResult, onAuthStateChanged, signOut, type User, type UserCredential} from 'firebase/auth';
+import {
+  auth,
+  authPersistenceReady,
+  browserPopupRedirectResolver,
+  formatFirebaseAuthError,
+  testConnection,
+} from '../lib/firebase';
 import {
   DEFAULT_PAYMENT_SETTINGS,
   DEFAULT_SHIPPING_SETTINGS,
@@ -40,6 +46,9 @@ interface StoreContextValue {
   user: User | null;
   profile: UserProfile | null;
   authReady: boolean;
+  redirectChecked: boolean;
+  redirectAuthError: string | null;
+  clearRedirectAuthError: () => void;
   isAdmin: boolean;
   language: Language;
   setLanguage: (lang: Language) => void;
@@ -75,11 +84,18 @@ const GUEST_CART_KEY = 'shikder_guest_cart_v1';
 const GUEST_WISH_KEY = 'shikder_guest_wish_v1';
 const LANG_KEY = 'shikder_lang_v1';
 const THEME_KEY = 'shikder_theme_v1';
+export const GOOGLE_REDIRECT_PENDING_KEY = 'shikder_google_redirect_pending';
+export const AUTH_REDIRECT_PATH_KEY = 'shikder_auth_redirect';
+
+let redirectResultPromise: Promise<UserCredential | null> | null = null;
 
 export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [redirectChecked, setRedirectChecked] = useState(false);
+  const [redirectAuthError, setRedirectAuthError] = useState<string | null>(null);
+  const clearRedirectAuthError = useCallback(() => setRedirectAuthError(null), []);
 
   const [language, setLanguageState] = useState<Language>(() => {
     if (typeof window === 'undefined') return 'en';
@@ -182,12 +198,46 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     testConnection();
     refreshCatalog();
 
+    (async () => {
+      try {
+        await authPersistenceReady;
+        if (!redirectResultPromise) {
+          redirectResultPromise = getRedirectResult(auth, browserPopupRedirectResolver);
+        }
+        const result = await redirectResultPromise;
+        if (cancelled) return;
+        const hadPendingRedirect = Boolean(sessionStorage.getItem(GOOGLE_REDIRECT_PENDING_KEY));
+        sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
+
+        if (result?.user) {
+          setUser(result.user);
+          showToast('Signed in with Google');
+        } else if (hadPendingRedirect && !auth.currentUser) {
+          setRedirectAuthError(
+            'Google redirect did not return a session because your browser blocked cross-site redirect storage. Please use "Sign in with Google Popup" below or enable site cookies.'
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
+          setRedirectAuthError(formatFirebaseAuthError(err));
+        }
+      } finally {
+        if (!cancelled) {
+          setRedirectChecked(true);
+        }
+      }
+    })();
+
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (cancelled) return;
       setUser(firebaseUser);
       if (firebaseUser) {
+        setRedirectAuthError(null);
         try {
           const prof = await ensureUserProfile(firebaseUser);
           setProfile(prof);
@@ -232,8 +282,11 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
       setAuthReady(true);
     });
 
-    return () => unsub();
-  }, [refreshCatalog]);
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [refreshCatalog, showToast]);
 
   const persistCart = useCallback(
     (next: CartItem[]) => {
@@ -321,6 +374,8 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
   );
 
   const logout = useCallback(async () => {
+    sessionStorage.removeItem(GOOGLE_REDIRECT_PENDING_KEY);
+    sessionStorage.removeItem(AUTH_REDIRECT_PATH_KEY);
     await signOut(auth);
     setProfile(null);
     setCart([]);
@@ -338,6 +393,9 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
       user,
       profile,
       authReady,
+      redirectChecked,
+      redirectAuthError,
+      clearRedirectAuthError,
       isAdmin,
       language,
       setLanguage,
@@ -370,6 +428,9 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
       user,
       profile,
       authReady,
+      redirectChecked,
+      redirectAuthError,
+      clearRedirectAuthError,
       isAdmin,
       language,
       setLanguage,

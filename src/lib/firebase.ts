@@ -1,8 +1,11 @@
 import {initializeApp, getApps, getApp} from 'firebase/app';
 import {
+  browserLocalPersistence,
+  browserPopupRedirectResolver,
+  browserSessionPersistence,
   getAuth,
   GoogleAuthProvider,
-  browserLocalPersistence,
+  indexedDBLocalPersistence,
   setPersistence,
 } from 'firebase/auth';
 import {
@@ -22,13 +25,23 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
 googleProvider.setCustomParameters({prompt: 'select_account'});
 
-if (typeof window !== 'undefined') {
-  setPersistence(auth, browserLocalPersistence).catch((err) => {
-    console.warn('Auth persistence warning:', err);
-  });
+export {browserPopupRedirectResolver};
 
+export const authPersistenceReady: Promise<void> =
+  typeof window === 'undefined'
+    ? Promise.resolve()
+    : setPersistence(auth, indexedDBLocalPersistence)
+        .catch(() => setPersistence(auth, browserLocalPersistence))
+        .catch(() => setPersistence(auth, browserSessionPersistence))
+        .catch((err) => {
+          console.warn('Auth persistence fallback warning:', err);
+        });
+
+if (typeof window !== 'undefined') {
   const recaptchaSiteKey = import.meta.env.VITE_FIREBASE_APP_CHECK_KEY || firebaseConfig.recaptchaSiteKey;
   if (recaptchaSiteKey) {
     try {
@@ -39,6 +52,40 @@ if (typeof window !== 'undefined') {
     } catch (err) {
       console.warn('App Check initialization skipped:', err);
     }
+  }
+}
+
+export function formatFirebaseAuthError(error: unknown): string {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as {code?: unknown}).code || '')
+      : '';
+  const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+
+  switch (code) {
+    case 'auth/unauthorized-domain':
+      return `Sign-in failed: "${host}" is not listed in Firebase Console → Authentication → Settings → Authorized domains.`;
+    case 'auth/operation-not-allowed':
+      return 'Google Sign-In is disabled in Firebase Authentication. Enable the Google provider in Firebase Console.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google sign-in popup. Please allow popups or use standard redirect sign-in.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Google sign-in was cancelled before completion. Please try again.';
+    case 'auth/network-request-failed':
+      return 'Network error while reaching Google Authentication. Check your internet connection and retry.';
+    case 'auth/web-storage-unsupported':
+      return 'Browser cookies or storage are disabled. Please enable site data/cookies in your browser to sign in.';
+    case 'auth/account-exists-with-different-credential':
+      return 'An account already exists with the same email under a different sign-in provider.';
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Contact support for assistance.';
+    case 'auth/too-many-requests':
+      return 'Too many authentication attempts. Please wait a moment and try again.';
+    default:
+      return error instanceof Error && error.message
+        ? error.message
+        : 'Unable to complete Google Sign-In. Please try again.';
   }
 }
 
