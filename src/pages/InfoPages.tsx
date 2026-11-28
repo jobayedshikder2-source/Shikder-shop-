@@ -158,7 +158,7 @@ export const PrivacyPolicyPage: React.FC = () => {
           2. Authentication &amp; Data Protection
         </h2>
         <p>
-          Account sign-in via Google, Phone Number OTP, and Email &amp; Password is handled exclusively by Firebase Authentication. Passwords and OTP verification codes are never stored in Cloud Firestore. Your personal profile, shipping address, and orders are isolated to your authenticated user ID and authorized store administrators via strict Firestore Security Rules.
+          Account sign-in via Google and Email &amp; Password is handled exclusively by Firebase Authentication. Passwords are never stored in Cloud Firestore. Your personal profile, shipping address, and orders are isolated to your authenticated user ID and authorized store administrators via strict Firestore Security Rules.
         </p>
       </section>
 

@@ -677,6 +677,35 @@ export async function fetchOrderById(orderId: string): Promise<Order | null> {
   }
 }
 
+export function subscribeToUserOrders(
+  uid: string,
+  onOrders: (orders: Order[]) => void,
+  onError?: (error: Error) => void
+): Unsubscribe {
+  const cleanUid = uid.trim();
+  if (!cleanUid) {
+    onOrders([]);
+    return () => {};
+  }
+  const ordersQ = query(collection(db, 'orders'), where('userId', '==', cleanUid), limit(100));
+  return onSnapshot(
+    ordersQ,
+    (snap) => {
+      const orders = sortByCreatedAtDesc(
+        snap.docs.map((d) => ({id: d.id, ...(d.data() as Omit<Order, 'id'>)}))
+      );
+      onOrders(orders);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'orders');
+      } catch (wrapped) {
+        onError?.(wrapped instanceof Error ? wrapped : new Error(String(wrapped)));
+      }
+    }
+  );
+}
+
 export function subscribeToOrder(
   orderId: string,
   onData: (order: Order | null) => void,

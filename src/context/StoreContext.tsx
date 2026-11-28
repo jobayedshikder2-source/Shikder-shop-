@@ -1,4 +1,4 @@
-import React, {createContext, useCallback, useContext, useEffect, useMemo, useState} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import {getRedirectResult, onAuthStateChanged, signOut, type User, type UserCredential} from 'firebase/auth';
 import {
   auth,
@@ -26,6 +26,7 @@ import {
   saveUserCart,
   saveUserWishlist,
   seedInitialCatalogIfEmpty,
+  subscribeToUserOrders,
 } from '../services/firestoreService';
 import {TRANSLATIONS} from '../lib/i18n';
 import type {
@@ -35,12 +36,22 @@ import type {
   Category,
   Language,
   NotificationItem,
+  OrderStatus,
   PaymentSettings,
   Product,
   ShippingSettings,
   UserProfile,
   WebsiteSettings,
 } from '../types/ecommerce';
+
+export interface OrderStatusToastItem {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  previousStatus: OrderStatus;
+  newStatus: OrderStatus;
+  createdAt: string;
+}
 
 interface StoreContextValue {
   user: User | null;
@@ -68,6 +79,8 @@ interface StoreContextValue {
   notifications: NotificationItem[];
   toastMessage: string | null;
   showToast: (msg: string) => void;
+  orderStatusToasts: OrderStatusToastItem[];
+  dismissOrderStatusToast: (id: string) => void;
   addToCart: (product: Product, opts?: {variantId?: string; size?: string; color?: string; quantity?: number}) => void;
   updateCartQty: (productId: string, variantId: string | undefined, qty: number) => void;
   removeFromCart: (productId: string, variantId?: string) => void;
@@ -138,12 +151,22 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [orderStatusToasts, setOrderStatusToasts] = useState<OrderStatusToastItem[]>([]);
+  const orderToastTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage((prev) => (prev === msg ? null : prev));
     }, 3200);
+  }, []);
+
+  const dismissOrderStatusToast = useCallback((id: string) => {
+    if (orderToastTimersRef.current[id]) {
+      clearTimeout(orderToastTimersRef.current[id]);
+      delete orderToastTimersRef.current[id];
+    }
+    setOrderStatusToasts((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
   useEffect(() => {
@@ -288,6 +311,65 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
     };
   }, [refreshCatalog, showToast]);
 
+  // Real-time order status watcher: notifies signed-in user whenever an order transitions status
+  useEffect(() => {
+    if (!authReady || !user) {
+      setOrderStatusToasts([]);
+      return;
+    }
+
+    let initialized = false;
+    const statusByOrderId = new Map<string, OrderStatus>();
+
+    const unsub = subscribeToUserOrders(
+      user.uid,
+      (orders) => {
+        if (!initialized) {
+          orders.forEach((o) => {
+            statusByOrderId.set(o.id, o.orderStatus);
+          });
+          initialized = true;
+          return;
+        }
+
+        const changed: OrderStatusToastItem[] = [];
+        for (const o of orders) {
+          const prevStatus = statusByOrderId.get(o.id);
+          if (prevStatus && prevStatus !== o.orderStatus) {
+            changed.push({
+              id: `${o.id}-${o.orderStatus}-${Date.now()}`,
+              orderId: o.id,
+              orderNumber: o.orderNumber,
+              previousStatus: prevStatus,
+              newStatus: o.orderStatus,
+              createdAt: new Date().toISOString(),
+            });
+          }
+          statusByOrderId.set(o.id, o.orderStatus);
+        }
+
+        if (changed.length > 0) {
+          setOrderStatusToasts((prev) => [...changed, ...prev].slice(0, 3));
+          for (const item of changed) {
+            orderToastTimersRef.current[item.id] = setTimeout(() => {
+              dismissOrderStatusToast(item.id);
+            }, 8500);
+          }
+          refreshNotifications();
+        }
+      },
+      (err) => {
+        console.warn('Order status listener warning:', err);
+      }
+    );
+
+    return () => {
+      unsub();
+      Object.values(orderToastTimersRef.current).forEach((timer) => clearTimeout(timer));
+      orderToastTimersRef.current = {};
+    };
+  }, [authReady, user, dismissOrderStatusToast, refreshNotifications]);
+
   const persistCart = useCallback(
     (next: CartItem[]) => {
       setCart(next);
@@ -415,6 +497,8 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
       notifications,
       toastMessage,
       showToast,
+      orderStatusToasts,
+      dismissOrderStatusToast,
       addToCart,
       updateCartQty,
       removeFromCart,
@@ -450,6 +534,8 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
       notifications,
       toastMessage,
       showToast,
+      orderStatusToasts,
+      dismissOrderStatusToast,
       addToCart,
       updateCartQty,
       removeFromCart,

@@ -139,7 +139,7 @@ test('Firestore service avoids unindexed where+orderBy queries and aggregates mu
   assert.match(serviceText, /sortByCreatedAtDesc/);
 });
 
-test('Authentication supports Google redirect/popup, Phone OTP, and Email/Password sign-in', () => {
+test('Authentication supports Google redirect/popup and Email/Password sign-in without phone login', () => {
   const firebaseText = fs.readFileSync(new URL('../src/lib/firebase.ts', import.meta.url), 'utf-8');
   const contextText = fs.readFileSync(new URL('../src/context/StoreContext.tsx', import.meta.url), 'utf-8');
   const authPageText = fs.readFileSync(new URL('../src/pages/AuthPages.tsx', import.meta.url), 'utf-8');
@@ -151,11 +151,38 @@ test('Authentication supports Google redirect/popup, Phone OTP, and Email/Passwo
   assert.match(contextText, /getRedirectResult/);
   assert.match(authPageText, /signInWithRedirect/);
   assert.match(authPageText, /signInWithPopup/);
-  assert.match(authPageText, /signInWithPhoneNumber/);
-  assert.match(authPageText, /RecaptchaVerifier/);
   assert.match(authPageText, /signInWithEmailAndPassword/);
   assert.match(authPageText, /createUserWithEmailAndPassword/);
+  assert.equal(/signInWithPhoneNumber/.test(authPageText), false);
+  assert.equal(/RecaptchaVerifier/.test(authPageText), false);
   assert.match(vercelConfig, /\/index\.html/);
+});
+
+test('OrderDetailPage renders visual OrderProgressTracker with Pending, Shipped, and Delivered stages', () => {
+  const detailPageText = fs.readFileSync(new URL('../src/pages/OrderDetailPage.tsx', import.meta.url), 'utf-8');
+  const progressText = fs.readFileSync(new URL('../src/components/OrderProgressTracker.tsx', import.meta.url), 'utf-8');
+
+  assert.match(detailPageText, /<OrderProgressTracker/);
+  assert.match(progressText, /'Pending'/);
+  assert.match(progressText, /'Shipped'/);
+  assert.match(progressText, /'Delivered'/);
+  assert.match(progressText, /role="progressbar"/);
+});
+
+test('Real-time order status notification toast listens to user orders and announces status transitions', () => {
+  const serviceText = fs.readFileSync(new URL('../src/services/firestoreService.ts', import.meta.url), 'utf-8');
+  const contextText = fs.readFileSync(new URL('../src/context/StoreContext.tsx', import.meta.url), 'utf-8');
+  const toastText = fs.readFileSync(new URL('../src/components/OrderStatusToast.tsx', import.meta.url), 'utf-8');
+  const layoutText = fs.readFileSync(new URL('../src/components/Layout.tsx', import.meta.url), 'utf-8');
+
+  assert.match(serviceText, /subscribeToUserOrders/);
+  assert.match(contextText, /subscribeToUserOrders/);
+  assert.match(contextText, /prevStatus && prevStatus !== o\.orderStatus/);
+  assert.match(contextText, /orderStatusToasts/);
+  assert.match(toastText, /previousStatus/);
+  assert.match(toastText, /newStatus/);
+  assert.match(toastText, /\/orders\/\$\{toast\.orderId\}/);
+  assert.match(layoutText, /<OrderStatusToast \/>/);
 });
 
 test('Admin settings allow editing WhatsApp, Gmail, Address, Instagram and ProductCard shows average rating', () => {

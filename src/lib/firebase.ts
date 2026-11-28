@@ -66,7 +66,7 @@ export function formatFirebaseAuthError(error: unknown): string {
     case 'auth/unauthorized-domain':
       return `Sign-in failed: "${host}" is not listed in Firebase Console → Authentication → Settings → Authorized domains.`;
     case 'auth/operation-not-allowed':
-      return 'This sign-in method is currently disabled in Firebase Authentication. Enable Google, Email/Password, and Phone providers in Firebase Console.';
+      return 'This sign-in method is currently disabled in Firebase Authentication. Enable Google and Email/Password providers in Firebase Console.';
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
     case 'auth/user-not-found':
@@ -77,16 +77,6 @@ export function formatFirebaseAuthError(error: unknown): string {
       return 'Password must be at least 6 characters long.';
     case 'auth/invalid-email':
       return 'Please enter a valid email address.';
-    case 'auth/invalid-phone-number':
-      return 'Enter a valid Bangladesh phone number (e.g. 01996266204 or +8801996266204).';
-    case 'auth/invalid-verification-code':
-      return 'Invalid 6-digit verification code. Please check your SMS and try again.';
-    case 'auth/code-expired':
-      return 'Verification code expired. Request a new OTP code.';
-    case 'auth/missing-phone-number':
-      return 'Please enter your mobile number first.';
-    case 'auth/quota-exceeded':
-      return 'SMS quota temporarily reached. Please try Email or Google Sign-In.';
     case 'auth/popup-blocked':
       return 'Your browser blocked the Google sign-in popup. Please allow popups or use standard redirect sign-in.';
     case 'auth/popup-closed-by-user':

@@ -7,6 +7,7 @@ import {formatBDT} from '../lib/bd-locations';
 import type {Order} from '../types/ecommerce';
 import {ImageWithFallback} from '../components/ImageWithFallback';
 import {OrderTracker} from '../components/OrderTracker';
+import {OrderProgressTracker} from '../components/OrderProgressTracker';
 
 export const OrderDetailPage: React.FC = () => {
   const {orderId = ''} = useParams<{orderId: string}>();
@@ -54,8 +55,11 @@ export const OrderDetailPage: React.FC = () => {
         {order && <span className="font-mono text-sm font-bold">{order.orderNumber}</span>}
       </div>
 
+      {/* Visual 3-Stage Order Progress Tracker (Pending -> Shipped -> Delivered) */}
+      {order && <OrderProgressTracker order={order} />}
+
       {/* Live Firestore Order Tracking */}
-      <OrderTracker orderId={orderId} onOrderUpdate={handleOrderUpdate} />
+      <OrderTracker orderId={orderId} onOrderUpdate={handleOrderUpdate} hideSteps />
 
       {order && (
         <>

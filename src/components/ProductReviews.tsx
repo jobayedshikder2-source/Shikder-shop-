@@ -155,7 +155,7 @@ export const ProductReviews: React.FC<ProductReviewsProps> = ({
     e.preventDefault();
     setFormError(null);
     if (!user) {
-      setFormError('Please sign in with Phone, Email, or Google to submit a product review.');
+      setFormError('Please sign in with Google or Email to submit a product review.');
       return;
     }
 

@@ -34,12 +34,14 @@ interface OrderTrackerProps {
   orderId: string;
   onOrderUpdate?: (order: Order | null) => void;
   showSummaryLink?: boolean;
+  hideSteps?: boolean;
 }
 
 export const OrderTracker: React.FC<OrderTrackerProps> = ({
   orderId,
   onOrderUpdate,
   showSummaryLink = false,
+  hideSteps = false,
 }) => {
   const {user, authReady, isAdmin} = useStore();
   const [order, setOrder] = useState<Order | null>(null);
@@ -104,7 +106,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
           to={`/login?redirect=${encodeURIComponent(`/orders/${orderId}`)}`}
           className="px-5 py-2 rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary text-xs font-semibold"
         >
-          Sign In with Google
+          Sign In to Track Order
         </Link>
       </div>
     );
@@ -148,7 +150,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-success">
-              <Radio className="w-3.5 h-3.5 animate-pulse" /> Live Firestore Sync
+              <Radio className="w-3.5 h-3.5" /> Live Firestore Sync
             </span>
             <span className="text-xs text-light-outline font-mono">{order.orderNumber}</span>
           </div>
@@ -183,7 +185,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
       </div>
 
       {/* Stepper or Exception Banner */}
-      {isException ? (
+      {!hideSteps && (isException ? (
         <div
           className={`rounded-xl p-4 flex items-center gap-3 text-sm ${
             order.orderStatus === 'Cancelled'
@@ -243,7 +245,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* Destination + Live Timeline */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 pt-3 border-t border-light-outline-variant dark:border-dark-outline-variant">
