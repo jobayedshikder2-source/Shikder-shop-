@@ -163,6 +163,26 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {order.verificationStatus && (
+            <span
+              className={`px-3 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 ${
+                order.verificationStatus === 'Verified'
+                  ? 'bg-success/15 text-success'
+                  : order.verificationStatus === 'Verification Failed'
+                  ? 'bg-light-error-container text-light-on-error-container'
+                  : 'bg-light-surface-container-low dark:bg-dark-surface-container text-light-on-surface-variant dark:text-dark-on-surface-variant'
+              }`}
+            >
+              {order.verificationStatus === 'Verified' ? (
+                <CheckCircle2 className="w-3.5 h-3.5" />
+              ) : order.verificationStatus === 'Verification Failed' ? (
+                <AlertCircle className="w-3.5 h-3.5" />
+              ) : (
+                <Clock className="w-3.5 h-3.5" />
+              )}
+              {order.verificationStatus}
+            </span>
+          )}
           {order.trackingCode ? (
             <span className="px-3.5 py-1.5 rounded-lg bg-light-surface-container dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant font-mono text-xs font-semibold inline-flex items-center gap-1.5">
               <Truck className="w-3.5 h-3.5 text-light-primary dark:text-dark-primary" />

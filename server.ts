@@ -4,6 +4,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import dotenv from 'dotenv';
 import express, {type NextFunction, type Request, type Response} from 'express';
+import {GoogleGenAI, ThinkingLevel} from '@google/genai';
 import {z} from 'zod';
 
 dotenv.config();
@@ -16,8 +17,15 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 const BD_PHONE_REGEX = /^(?:\+?880|0)1[3-9]\d{8}$/;
 
 // In-memory sliding-window rate limiter & recent idempotency guard
+interface VerifiedOrderEntry {
+  ts: number;
+  orderNumber?: string;
+  totalAmount?: number;
+  verifiedAt: string;
+}
+
 const rateBuckets = new Map<string, {count: number; resetAt: number}>();
-const seenIdempotencyKeys = new Map<string, number>();
+const seenIdempotencyKeys = new Map<string, VerifiedOrderEntry>();
 
 function rateLimitApi(req: Request, res: Response, next: NextFunction) {
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
@@ -37,7 +45,13 @@ function rateLimitApi(req: Request, res: Response, next: NextFunction) {
 }
 
 const checkoutVerifySchema = z.object({
+  orderId: z
+    .string()
+    .regex(/^[a-zA-Z0-9_-]{8,128}$/, 'Invalid order ID')
+    .optional(),
+  orderNumber: z.string().trim().min(6).max(40).optional(),
   idempotencyKey: z.string().regex(/^[a-zA-Z0-9_-]{8,128}$/, 'Invalid order idempotency key'),
+  totalAmount: z.number().positive().optional(),
   customerInfo: z.object({
     fullName: z.string().trim().min(2).max(120),
     phone: z.string().trim().regex(BD_PHONE_REGEX, 'Invalid Bangladesh mobile number'),
@@ -61,6 +75,68 @@ const checkoutVerifySchema = z.object({
     .max(50),
   couponCode: z.string().max(40).optional(),
   paymentMethod: z.enum(['cod']),
+});
+
+const chatRequestSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        text: z.string().trim().min(1).max(1200),
+      })
+    )
+    .min(1)
+    .max(20),
+  storeContext: z
+    .object({
+      brandName: z.string().max(120).optional(),
+      supportEmail: z.string().max(200).optional(),
+      supportPhone: z.string().max(40).optional(),
+      whatsappNumber: z.string().max(40).optional(),
+      address: z.string().max(240).optional(),
+      language: z.enum(['en', 'bn']).optional(),
+      shipping: z
+        .object({
+          dhakaFee: z.number().optional(),
+          outsideDhakaFee: z.number().optional(),
+          freeDhakaThreshold: z.number().optional(),
+          estimatedDhakaDays: z.string().max(60).optional(),
+          estimatedOutsideDays: z.string().max(60).optional(),
+        })
+        .optional(),
+      products: z
+        .array(
+          z.object({
+            name: z.string().max(160),
+            slug: z.string().max(160).optional(),
+            categoryName: z.string().max(80).optional(),
+            regularPrice: z.number(),
+            discountedPrice: z.number().optional(),
+            stockQuantity: z.number(),
+            ratingAvg: z.number().optional(),
+            ratingCount: z.number().optional(),
+            shortDescription: z.string().max(300).optional(),
+          })
+        )
+        .max(60)
+        .optional(),
+      isAuthenticated: z.boolean().optional(),
+      orders: z
+        .array(
+          z.object({
+            orderNumber: z.string().max(60),
+            orderStatus: z.string().max(40),
+            paymentStatus: z.string().max(40).optional(),
+            totalAmount: z.number(),
+            trackingCode: z.string().max(80).optional(),
+            itemsSummary: z.string().max(300).optional(),
+            updatedAt: z.string().max(80).optional(),
+          })
+        )
+        .max(20)
+        .optional(),
+    })
+    .optional(),
 });
 
 async function createApp() {
@@ -95,39 +171,82 @@ async function createApp() {
   app.post('/api/checkout/verify', rateLimitApi, (req, res) => {
     const authHeader = req.headers.authorization || '';
     if (!authHeader.startsWith('Bearer ') || authHeader.slice(7).trim().length < 20) {
-      res.status(401).json({error: 'Authenticated customer session token is required for checkout.'});
+      res.status(401).json({
+        ok: false,
+        verified: false,
+        error: 'Authenticated customer session token is required to verify this order.',
+      });
       return;
     }
 
     const parsed = checkoutVerifySchema.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({error: parsed.error.issues[0]?.message || 'Invalid checkout payload'});
+      res.status(400).json({
+        ok: false,
+        verified: false,
+        error: parsed.error.issues[0]?.message || 'Invalid order verification payload.',
+      });
       return;
     }
 
-    const {idempotencyKey, paymentMethod} = parsed.data;
+    const {orderId, orderNumber, idempotencyKey, totalAmount, paymentMethod} = parsed.data;
+    if (orderId && orderId !== idempotencyKey) {
+      res.status(422).json({
+        ok: false,
+        verified: false,
+        error: 'Order document ID does not match the checkout idempotency key.',
+      });
+      return;
+    }
 
-    // Prevent rapid duplicate submissions on the same idempotencyKey
+    const resolvedOrderId = orderId || idempotencyKey;
     const now = Date.now();
-    const prevTs = seenIdempotencyKeys.get(idempotencyKey);
-    if (prevTs && now - prevTs < 10 * 60_000) {
-      res.status(409).json({error: 'Duplicate order request detected for this checkout session.'});
+    const existing = seenIdempotencyKeys.get(resolvedOrderId);
+    if (existing && now - existing.ts < 30 * 60_000) {
+      if (
+        (existing.orderNumber && orderNumber && existing.orderNumber !== orderNumber) ||
+        (existing.totalAmount !== undefined && totalAmount !== undefined && existing.totalAmount !== totalAmount)
+      ) {
+        res.status(422).json({
+          ok: false,
+          verified: false,
+          error: 'Order verification details do not match the previously verified order.',
+        });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        verified: true,
+        alreadyVerified: true,
+        orderId: resolvedOrderId,
+        orderNumber: orderNumber || existing.orderNumber,
+        idempotencyKey,
+        paymentMethod,
+        verifiedAt: existing.verifiedAt,
+      });
       return;
     }
-    seenIdempotencyKeys.set(idempotencyKey, now);
+
+    const verifiedAt = new Date().toISOString();
+    seenIdempotencyKeys.set(resolvedOrderId, {ts: now, orderNumber, totalAmount, verifiedAt});
 
     // Prune stale idempotency entries
     if (seenIdempotencyKeys.size > 500) {
-      for (const [k, ts] of seenIdempotencyKeys.entries()) {
-        if (now - ts > 15 * 60_000) seenIdempotencyKeys.delete(k);
+      for (const [k, entry] of seenIdempotencyKeys.entries()) {
+        if (now - entry.ts > 30 * 60_000) seenIdempotencyKeys.delete(k);
       }
     }
 
     res.json({
       ok: true,
+      verified: true,
+      alreadyVerified: false,
+      orderId: resolvedOrderId,
+      orderNumber,
       idempotencyKey,
       paymentMethod,
-      verifiedAt: new Date().toISOString(),
+      verifiedAt,
     });
   });
 
@@ -142,6 +261,118 @@ async function createApp() {
       return;
     }
     res.json({valid: true, normalizedCode: parsed.data.code});
+  });
+
+  app.post('/api/chat', rateLimitApi, async (req, res) => {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+      res.status(503).json({
+        error: 'Assistant is currently unavailable because GEMINI_API_KEY is not configured in Settings > Secrets.',
+      });
+      return;
+    }
+
+    const parsed = chatRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({error: parsed.error.issues[0]?.message || 'Invalid chat request'});
+      return;
+    }
+
+    const {messages, storeContext} = parsed.data;
+    const brandName = storeContext?.brandName || 'SHIKDER SHOP';
+    const shipping = storeContext?.shipping;
+    const productsList = (storeContext?.products || [])
+      .map((p) => {
+        const effectivePrice = p.discountedPrice && p.discountedPrice > 0 ? p.discountedPrice : p.regularPrice;
+        const stockText = p.stockQuantity > 0 ? `In stock (${p.stockQuantity})` : 'Out of stock';
+        const ratingText =
+          p.ratingCount && p.ratingCount > 0 ? `, Rating: ${p.ratingAvg?.toFixed(1) || '0.0'}/5 (${p.ratingCount} reviews)` : '';
+        return `- ${p.name} [${p.categoryName || 'General'}]: ৳${effectivePrice}${
+          p.discountedPrice && p.discountedPrice > 0 ? ` (was ৳${p.regularPrice})` : ''
+        } | ${stockText}${ratingText}${p.shortDescription ? ` | ${p.shortDescription}` : ''}`;
+      })
+      .join('\n');
+
+    const ordersList = storeContext?.isAuthenticated
+      ? (storeContext.orders || []).length > 0
+        ? (storeContext.orders || [])
+            .map(
+              (o) =>
+                `- ${o.orderNumber}: Status=${o.orderStatus}, Payment=${o.paymentStatus || 'Cash on Delivery'}, Total=৳${o.totalAmount}${
+                  o.trackingCode ? `, Courier Tracking=${o.trackingCode}` : ''
+                }${o.itemsSummary ? `, Items=[${o.itemsSummary}]` : ''}`
+            )
+            .join('\n')
+        : 'This signed-in customer currently has no orders.'
+      : 'Customer is NOT signed in.';
+
+    const systemInstruction = [
+      `You are the official customer support assistant for ${brandName}, a single-vendor Bangladesh e-commerce storefront.`,
+      'Answer concisely, warmly, and accurately in under 150 words unless listing products or orders.',
+      'Reply in the same language the customer uses (English or Bengali).',
+      'Only cite products, prices in BDT (৳), stock availability, ratings, shipping rules, and order details provided in the LIVE STORE CONTEXT below. Never invent products, prices, tracking codes, or order statuses.',
+      'If the customer asks about their order status and is NOT signed in, politely advise them to sign in with Google or Email/Password to view their personal order status.',
+      'For human support, share the store WhatsApp number, email, or physical address from context.',
+      '',
+      '=== LIVE STORE CONTEXT ===',
+      `Store: ${brandName}`,
+      `Address: ${storeContext?.address || 'Asuliya, Savar, Dhaka, Bangladesh'}`,
+      `WhatsApp: ${storeContext?.whatsappNumber || '01996266204'} | Support Phone: ${storeContext?.supportPhone || '+880 1996-266204'} | Email: ${storeContext?.supportEmail || 'bnagladeshbodnaparty@gmail.com'}`,
+      `Payment Method: Cash on Delivery (COD) nationwide across all 64 districts of Bangladesh.`,
+      shipping
+        ? `Shipping Charges: Inside Dhaka ৳${shipping.dhakaFee ?? 70} (${shipping.estimatedDhakaDays || '1-2 business days'}), Outside Dhaka ৳${shipping.outsideDhakaFee ?? 130} (${shipping.estimatedOutsideDays || '2-4 business days'}), Free Dhaka delivery above ৳${shipping.freeDhakaThreshold ?? 3500}.`
+        : '',
+      '',
+      'Catalog Products:',
+      productsList || 'No products loaded.',
+      '',
+      'Customer Orders:',
+      ordersList,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    try {
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          },
+        },
+      });
+
+      const contents = messages.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{text: m.text}],
+      }));
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-4-hydrogen',
+        contents,
+        config: {
+          systemInstruction,
+          thinkingConfig: {thinkingLevel: ThinkingLevel.LOW},
+        },
+      });
+
+      const reply = response.text?.trim();
+      if (!reply) {
+        res.status(502).json({error: 'Received an empty response from Gemini. Please try asking again.'});
+        return;
+      }
+
+      res.json({reply});
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unable to reach Gemini assistant right now.';
+      const status =
+        msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')
+          ? 429
+          : msg.includes('403') || msg.includes('PERMISSION_DENIED') || msg.includes('API_KEY_INVALID')
+            ? 403
+            : 500;
+      res.status(status).json({error: msg});
+    }
   });
 
   app.get('/robots.txt', (req, res) => {

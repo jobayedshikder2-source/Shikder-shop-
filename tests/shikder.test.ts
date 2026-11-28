@@ -185,6 +185,21 @@ test('Real-time order status notification toast listens to user orders and annou
   assert.match(layoutText, /<OrderStatusToast \/>/);
 });
 
+test('Floating Gemini chat widget routes through server-side /api/chat using gemini-4-hydrogen without browser API key exposure', () => {
+  const serverText = fs.readFileSync(new URL('../server.ts', import.meta.url), 'utf-8');
+  const widgetText = fs.readFileSync(new URL('../src/components/SupportChatWidget.tsx', import.meta.url), 'utf-8');
+  const layoutText = fs.readFileSync(new URL('../src/components/Layout.tsx', import.meta.url), 'utf-8');
+
+  assert.match(serverText, /@google\/genai/);
+  assert.match(serverText, /gemini-4-hydrogen/);
+  assert.match(serverText, /aistudio-build/);
+  assert.match(serverText, /\/api\/chat/);
+  assert.equal(/@google\/genai/.test(widgetText), false);
+  assert.match(widgetText, /\/api\/chat/);
+  assert.match(widgetText, /subscribeToUserOrders/);
+  assert.match(layoutText, /<SupportChatWidget \/>/);
+});
+
 test('Admin settings allow editing WhatsApp, Gmail, Address, Instagram and ProductCard shows average rating', () => {
   const adminText = fs.readFileSync(new URL('../src/pages/AdminDashboardPage.tsx', import.meta.url), 'utf-8');
   const cardText = fs.readFileSync(new URL('../src/components/ProductCard.tsx', import.meta.url), 'utf-8');
@@ -214,3 +229,111 @@ test('ProductReviews component supports interactive star ratings, real-time Fire
   assert.match(serviceText, /onSnapshot/);
   assert.match(rulesText, /hasOnly\(\['rating', 'comment', 'userName', 'isApproved'\]\)/);
 });
+
+test('Google login enforces browserLocalPersistence, popup login, profile persistence in users/{uid}, and post-save redirect', () => {
+  const firebaseText = fs.readFileSync(new URL('../src/lib/firebase.ts', import.meta.url), 'utf-8');
+  const authPageText = fs.readFileSync(new URL('../src/pages/AuthPages.tsx', import.meta.url), 'utf-8');
+  const contextText = fs.readFileSync(new URL('../src/context/StoreContext.tsx', import.meta.url), 'utf-8');
+  const serviceText = fs.readFileSync(new URL('../src/services/firestoreService.ts', import.meta.url), 'utf-8');
+  const rulesText = fs.readFileSync(new URL('../firestore.rules', import.meta.url), 'utf-8');
+
+  assert.match(firebaseText, /ensureBrowserLocalPersistence/);
+  assert.match(firebaseText, /setPersistence\(auth,\s*browserLocalPersistence\)/);
+  assert.match(authPageText, /setPersistence\(auth,\s*browserLocalPersistence\)/);
+  assert.match(authPageText, /signInWithPopup\(auth,\s*googleProvider/);
+  assert.match(authPageText, /await syncUserProfile\(cred\.user\)/);
+  assert.match(authPageText, /user && profileSynced && busyMode === null/);
+
+  assert.match(contextText, /onAuthStateChanged/);
+  assert.match(contextText, /profileSynced/);
+
+  assert.match(serviceText, /inFlightProfileSaves/);
+  assert.match(serviceText, /setDoc\(userRef,\s*createPayload,\s*\{merge:\s*true\}\)/);
+  assert.match(serviceText, /setDoc\(userRef,\s*mergePayload,\s*\{merge:\s*true\}\)/);
+  for (const field of ['uid:', 'displayName:', 'email:', 'photoURL:', 'provider:', 'createdAt:', 'lastLoginAt:']) {
+    assert.ok(serviceText.includes(field), `Missing user profile field ${field}`);
+  }
+  assert.equal(/accessToken|oauthAccessToken/i.test(serviceText), false);
+  assert.match(rulesText, /'displayName'.*'provider'.*'lastLoginAt'/s);
+});
+
+test('Order creation & verification separates Firestore save from verification, handles network errors cleanly, and supports Vercel serverless verify', async () => {
+  const serviceText = fs.readFileSync(new URL('../src/services/firestoreService.ts', import.meta.url), 'utf-8');
+  const checkoutText = fs.readFileSync(new URL('../src/pages/CheckoutPage.tsx', import.meta.url), 'utf-8');
+  const serverText = fs.readFileSync(new URL('../server.ts', import.meta.url), 'utf-8');
+  const vercelVerifyText = fs.readFileSync(new URL('../api/checkout/verify.ts', import.meta.url), 'utf-8');
+
+  assert.match(serviceText, /createTransactionalOrder/);
+  assert.match(serviceText, /verifySavedOrderById/);
+  assert.match(serviceText, /getDocFromServer\(orderRef\)/);
+  assert.match(serviceText, /kind:\s*'network_error'/);
+  assert.match(serviceText, /kind:\s*'verification_error'/);
+  assert.equal(/deleteDoc\(orderRef\)/.test(serviceText), false);
+
+  for (const status of ['Order Created', 'Verification Pending', 'Verified', 'Verification Failed']) {
+    assert.ok(checkoutText.includes(status), `CheckoutPage missing status ${status}`);
+  }
+  assert.match(checkoutText, /Retry Verification/);
+  assert.match(serverText, /alreadyVerified:\s*true/);
+  assert.match(vercelVerifyText, /export default async function handler/);
+
+  // Exercise /api/checkout/verify Vercel handler directly for auth rejection, verification, and idempotent retry
+  const {default: verifyHandler} = await import('../api/checkout/verify.ts');
+  const {Readable} = await import('node:stream');
+
+  const invoke = async (headers: Record<string, string>, payload: unknown) => {
+    const req = Readable.from([Buffer.from(JSON.stringify(payload))]) as unknown as Parameters<typeof verifyHandler>[0];
+    req.method = 'POST';
+    req.headers = headers;
+    let statusCode = 200;
+    let rawBody = '';
+    const res = {
+      setHeader() {},
+      set statusCode(code: number) {
+        statusCode = code;
+      },
+      get statusCode() {
+        return statusCode;
+      },
+      end(chunk?: string) {
+        rawBody = chunk || '';
+      },
+    } as unknown as Parameters<typeof verifyHandler>[1];
+    await verifyHandler(req, res);
+    return {statusCode, body: JSON.parse(rawBody)};
+  };
+
+  const unauth = await invoke({}, {});
+  assert.equal(unauth.statusCode, 401);
+  assert.equal(unauth.body.verified, false);
+
+  const samplePayload = {
+    orderId: 'ord_test_12345678',
+    orderNumber: 'ORD-2026-123456',
+    idempotencyKey: 'ord_test_12345678',
+    totalAmount: 1570,
+    customerInfo: {
+      fullName: 'Tanvir Rahman',
+      phone: '01712345678',
+      email: 'tanvir@example.com',
+      division: 'Dhaka',
+      district: 'Dhaka',
+      upazila: 'Banani',
+      area: 'Road 11',
+      fullAddress: 'House 14, Block F, Banani',
+    },
+    items: [{productId: 'prod-1', quantity: 1}],
+    paymentMethod: 'cod',
+  };
+
+  const first = await invoke({authorization: 'Bearer sample-firebase-id-token-12345'}, samplePayload);
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.body.verified, true);
+  assert.equal(first.body.alreadyVerified, false);
+
+  const retry = await invoke({authorization: 'Bearer sample-firebase-id-token-12345'}, samplePayload);
+  assert.equal(retry.statusCode, 200);
+  assert.equal(retry.body.verified, true);
+  assert.equal(retry.body.alreadyVerified, true);
+});
+

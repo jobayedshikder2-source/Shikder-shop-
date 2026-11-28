@@ -1,20 +1,35 @@
 import React, {useEffect, useMemo, useState} from 'react';
-import {Link, useNavigate, useSearchParams} from 'react-router-dom';
+import {Link, useSearchParams} from 'react-router-dom';
 import {useForm} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
-import {CheckCircle2, Lock, MapPin, ShieldCheck, Wallet} from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Lock,
+  MapPin,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  Wallet,
+} from 'lucide-react';
 import {z} from 'zod';
 import {useStore} from '../context/StoreContext';
 import {BD_DIVISIONS, formatBDT, normalizeBdPhone} from '../lib/bd-locations';
 import {checkoutSchema} from '../lib/validators';
-import {placeTransactionalOrder, validateCouponOnFirestore} from '../services/firestoreService';
+import {
+  createTransactionalOrder,
+  validateCouponOnFirestore,
+  verifySavedOrderById,
+} from '../services/firestoreService';
+import type {Order, OrderVerificationStatus} from '../types/ecommerce';
 
 type CheckoutForm = z.infer<typeof checkoutSchema>;
 
 export const CheckoutPage: React.FC = () => {
   const {user, profile, cart, products, shippingSettings, catalogLoadedFromDb, clearCart, showToast} = useStore();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   const [couponCode, setCouponCode] = useState(searchParams.get('coupon') || '');
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -23,6 +38,14 @@ export const CheckoutPage: React.FC = () => {
   const [idempotencyKey, setIdempotencyKey] = useState(
     () => `ord_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
   );
+
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<OrderVerificationStatus | null>(null);
+  const [verificationIssueKind, setVerificationIssueKind] = useState<
+    'ok' | 'network_error' | 'verification_error' | null
+  >(null);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
 
   const {
     register,
@@ -102,6 +125,32 @@ export const CheckoutPage: React.FC = () => {
       : shippingSettings.outsideDhakaFee;
   const totalPayable = Math.max(0, subtotal - discountAmount + deliveryCharge);
 
+  const runOrderVerification = async (order: Order) => {
+    if (!user) return;
+    setVerifying(true);
+    setVerificationStatus('Verification Pending');
+    setVerificationMessage('Confirming saved order record in Firestore and running server verification...');
+    try {
+      const idToken = await user.getIdToken().catch(() => undefined);
+      const res = await verifySavedOrderById({
+        uid: user.uid,
+        orderId: order.id,
+        idToken,
+      });
+      setVerificationStatus(res.status);
+      setVerificationIssueKind(res.kind);
+      setVerificationMessage(res.message);
+      if (res.order) {
+        setCreatedOrder(res.order);
+      }
+      if (res.status === 'Verified') {
+        showToast(`Order ${order.orderNumber} verified!`);
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center flex flex-col items-center gap-4">
@@ -116,6 +165,144 @@ export const CheckoutPage: React.FC = () => {
         >
           Sign In with Google
         </Link>
+      </div>
+    );
+  }
+
+  if (createdOrder) {
+    const activeStatus: OrderVerificationStatus = verificationStatus || createdOrder.verificationStatus || 'Order Created';
+    const isVerified = activeStatus === 'Verified';
+    const isFailed = activeStatus === 'Verification Failed';
+    const isNetworkIssue = verificationIssueKind === 'network_error';
+
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-10 flex flex-col gap-6">
+        <section className="rounded-2xl bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-6 md:p-8 flex flex-col gap-5">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-8 h-8 text-success shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wider text-success">
+                Order Created
+              </span>
+              <h1 className="font-headline text-2xl font-bold">
+                Thank you! Order {createdOrder.orderNumber} is saved.
+              </h1>
+              <p className="text-xs text-light-on-surface-variant dark:text-dark-on-surface-variant font-mono">
+                Document ID: {createdOrder.id} · Total COD: {formatBDT(createdOrder.totalAmount)}
+              </p>
+            </div>
+          </div>
+
+          {/* Explicit Verification Status Panel */}
+          <div
+            role="status"
+            className={`rounded-xl border p-4 flex flex-col gap-3 ${
+              isVerified
+                ? 'border-success/40 bg-success/10 text-light-on-surface dark:text-dark-on-surface'
+                : isFailed
+                ? 'border-light-error/50 bg-light-error-container text-light-on-error-container'
+                : 'border-light-primary/30 bg-light-surface-container-low dark:bg-dark-surface-container'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 font-semibold text-sm">
+                {verifying ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-light-primary dark:text-dark-primary" />
+                ) : isVerified ? (
+                  <ShieldCheck className="w-4 h-4 text-success" />
+                ) : isFailed ? (
+                  <ShieldAlert className="w-4 h-4 text-light-error" />
+                ) : isNetworkIssue ? (
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                ) : (
+                  <Clock className="w-4 h-4 text-light-primary dark:text-dark-primary" />
+                )}
+                <span>Verification Status: {activeStatus}</span>
+              </div>
+
+              {!isVerified && (
+                <button
+                  type="button"
+                  disabled={verifying}
+                  onClick={() => runOrderVerification(createdOrder)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary text-xs font-semibold disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${verifying ? 'animate-spin' : ''}`} />
+                  {verifying ? 'Verifying...' : 'Retry Verification'}
+                </button>
+              )}
+            </div>
+
+            {verificationMessage && (
+              <p className="text-xs leading-relaxed opacity-90">{verificationMessage}</p>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-xs">
+              <div className="rounded-lg bg-light-surface-container-lowest/80 dark:bg-dark-surface-container-low px-3 py-2 flex items-center gap-2">
+                <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                <span className="font-medium">Order Created</span>
+              </div>
+              <div className="rounded-lg bg-light-surface-container-lowest/80 dark:bg-dark-surface-container-low px-3 py-2 flex items-center gap-2">
+                {activeStatus === 'Verification Pending' ? (
+                  <Clock className="w-3.5 h-3.5 text-light-primary shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                )}
+                <span className="font-medium">Verification Pending</span>
+              </div>
+              <div className="rounded-lg bg-light-surface-container-lowest/80 dark:bg-dark-surface-container-low px-3 py-2 flex items-center gap-2">
+                {isVerified ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                    <span className="font-medium">Verified</span>
+                  </>
+                ) : isFailed ? (
+                  <>
+                    <ShieldAlert className="w-3.5 h-3.5 text-light-error shrink-0" />
+                    <span className="font-medium">Verification Failed</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-light-outline shrink-0" />
+                    <span className="font-medium text-light-on-surface-variant dark:text-dark-on-surface-variant">
+                      Awaiting Verified
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-light-outline-variant dark:border-dark-outline-variant p-4 text-xs flex flex-col gap-1.5">
+            <p className="font-semibold text-sm">Delivery Confirmation</p>
+            <p>
+              {createdOrder.customerInfo.fullName} ·{' '}
+              <span className="font-mono">{createdOrder.customerInfo.phone}</span>
+            </p>
+            <p className="text-light-on-surface-variant dark:text-dark-on-surface-variant">
+              {createdOrder.customerInfo.fullAddress}, {createdOrder.customerInfo.upazila},{' '}
+              {createdOrder.customerInfo.district}, {createdOrder.customerInfo.division}
+            </p>
+            <p className="text-light-on-surface-variant dark:text-dark-on-surface-variant">
+              Items: {createdOrder.items.map((item) => `${item.name} × ${item.quantity}`).join(', ')}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to={`/orders/${createdOrder.id}`}
+              className="px-6 py-2.5 rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary text-sm font-semibold"
+            >
+              View Order Details &amp; Tracking
+            </Link>
+            <Link
+              to="/products"
+              className="px-5 py-2.5 rounded-full border border-light-outline-variant dark:border-dark-outline-variant text-sm font-semibold"
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        </section>
       </div>
     );
   }
@@ -138,9 +325,9 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
     setSubmitting(true);
+    let savedOrder: Order | null = null;
     try {
-      const idToken = await user.getIdToken();
-      const order = await placeTransactionalOrder({
+      const {order, alreadyExisted} = await createTransactionalOrder({
         uid: user.uid,
         idempotencyKey,
         customerInfo: {
@@ -150,19 +337,30 @@ export const CheckoutPage: React.FC = () => {
         cartItems: cart,
         couponCode: couponCode.trim() || undefined,
         paymentMethod: data.paymentMethod,
-        idToken,
       });
+      savedOrder = order;
+      setCreatedOrder(order);
+      setVerificationStatus('Order Created');
+      setVerificationIssueKind(null);
+      setVerificationMessage(
+        alreadyExisted
+          ? 'Existing order recovered for this checkout ID. Running verification...'
+          : 'Order created in Firestore. Verifying saved order details...'
+      );
       clearCart();
-      showToast(`Order ${order.orderNumber} placed!`);
-      navigate(`/orders/${order.id}`);
+      showToast(`Order ${order.orderNumber} created`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unable to place order';
-      if (!msg.includes('Duplicate order submission detected')) {
+      const msg = err instanceof Error ? err.message : 'Unable to create order in Firestore';
+      if (msg.includes('Order ID belongs')) {
         setIdempotencyKey(`ord_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
       }
       setErrorMsg(msg);
     } finally {
       setSubmitting(false);
+    }
+
+    if (savedOrder) {
+      await runOrderVerification(savedOrder);
     }
   };
 

@@ -4,6 +4,7 @@ import {
   auth,
   authPersistenceReady,
   browserPopupRedirectResolver,
+  ensureBrowserLocalPersistence,
   formatFirebaseAuthError,
   testConnection,
 } from '../lib/firebase';
@@ -56,6 +57,8 @@ export interface OrderStatusToastItem {
 interface StoreContextValue {
   user: User | null;
   profile: UserProfile | null;
+  profileSynced: boolean;
+  syncUserProfile: (firebaseUser: User) => Promise<UserProfile>;
   authReady: boolean;
   redirectChecked: boolean;
   redirectAuthError: string | null;
@@ -105,10 +108,18 @@ let redirectResultPromise: Promise<UserCredential | null> | null = null;
 export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileSynced, setProfileSynced] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [redirectChecked, setRedirectChecked] = useState(false);
   const [redirectAuthError, setRedirectAuthError] = useState<string | null>(null);
   const clearRedirectAuthError = useCallback(() => setRedirectAuthError(null), []);
+
+  const syncUserProfile = useCallback(async (firebaseUser: User): Promise<UserProfile> => {
+    const prof = await ensureUserProfile(firebaseUser);
+    setProfile(prof);
+    setProfileSynced(true);
+    return prof;
+  }, []);
 
   const [language, setLanguageState] = useState<Language>(() => {
     if (typeof window === 'undefined') return 'en';
@@ -228,6 +239,7 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
     (async () => {
       try {
         await authPersistenceReady;
+        await ensureBrowserLocalPersistence();
         if (!redirectResultPromise) {
           redirectResultPromise = getRedirectResult(auth, browserPopupRedirectResolver);
         }
@@ -238,10 +250,13 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
 
         if (result?.user) {
           setUser(result.user);
+          await syncUserProfile(result.user).catch((profileErr) => {
+            console.warn('Redirect profile save warning:', profileErr);
+          });
           showToast('Signed in with Google');
         } else if (hadPendingRedirect && !auth.currentUser) {
           setRedirectAuthError(
-            'Google redirect did not return a session because your browser blocked cross-site redirect storage. Please use "Sign in with Google Popup" below or enable site cookies.'
+            'Google redirect did not return a session because your browser blocked cross-site redirect storage. Please use Google sign-in below or enable site cookies.'
           );
         }
       } catch (err) {
@@ -262,8 +277,8 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
       if (firebaseUser) {
         setRedirectAuthError(null);
         try {
-          const prof = await ensureUserProfile(firebaseUser);
-          setProfile(prof);
+          await syncUserProfile(firebaseUser);
+          if (cancelled) return;
           if (isBootstrappedAdminUser(firebaseUser)) {
             await seedInitialCatalogIfEmpty(firebaseUser);
             await refreshCatalog();
@@ -299,17 +314,20 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
         }
       } else {
         setProfile(null);
+        setProfileSynced(false);
         setNotifications([]);
         refreshCatalog();
       }
-      setAuthReady(true);
+      if (!cancelled) {
+        setAuthReady(true);
+      }
     });
 
     return () => {
       cancelled = true;
       unsub();
     };
-  }, [refreshCatalog, showToast]);
+  }, [refreshCatalog, showToast, syncUserProfile]);
 
   // Real-time order status watcher: notifies signed-in user whenever an order transitions status
   useEffect(() => {
@@ -460,6 +478,7 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
     sessionStorage.removeItem(AUTH_REDIRECT_PATH_KEY);
     await signOut(auth);
     setProfile(null);
+    setProfileSynced(false);
     setCart([]);
     setWishlist([]);
     setNotifications([]);
@@ -474,6 +493,8 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
     () => ({
       user,
       profile,
+      profileSynced,
+      syncUserProfile,
       authReady,
       redirectChecked,
       redirectAuthError,
@@ -511,6 +532,8 @@ export const StoreProvider: React.FC<{children: React.ReactNode}> = ({children})
     [
       user,
       profile,
+      profileSynced,
+      syncUserProfile,
       authReady,
       redirectChecked,
       redirectAuthError,

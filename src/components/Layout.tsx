@@ -19,6 +19,7 @@ import {useStore} from '../context/StoreContext';
 import {formatBDT, getInstagramUrl, getWhatsAppUrl} from '../lib/bd-locations';
 import {OfflineIndicator, PWAInstallButton} from './PWAWidgets';
 import {OrderStatusToast} from './OrderStatusToast';
+import {SupportChatWidget} from './SupportChatWidget';
 
 export const Layout: React.FC<{children: React.ReactNode}> = ({children}) => {
   const {
@@ -360,7 +361,7 @@ export const Layout: React.FC<{children: React.ReactNode}> = ({children}) => {
       </nav>
 
       {/* Live Toast Stack */}
-      <div className="fixed bottom-16 md:bottom-6 right-4 left-4 sm:left-auto z-50 flex flex-col items-end gap-2.5 pointer-events-none">
+      <div className="fixed bottom-32 md:bottom-22 right-4 left-4 sm:left-auto z-50 flex flex-col items-end gap-2.5 pointer-events-none">
         <OrderStatusToast />
         {toastMessage && (
           <div role="status" className="pointer-events-auto rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary px-5 py-2.5 text-sm font-semibold shadow-lg">
@@ -368,6 +369,7 @@ export const Layout: React.FC<{children: React.ReactNode}> = ({children}) => {
           </div>
         )}
       </div>
+      <SupportChatWidget />
       <OfflineIndicator />
     </div>
   );

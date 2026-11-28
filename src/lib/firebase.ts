@@ -31,15 +31,24 @@ googleProvider.setCustomParameters({prompt: 'select_account'});
 
 export {browserPopupRedirectResolver};
 
-export const authPersistenceReady: Promise<void> =
-  typeof window === 'undefined'
-    ? Promise.resolve()
-    : setPersistence(auth, indexedDBLocalPersistence)
-        .catch(() => setPersistence(auth, browserLocalPersistence))
-        .catch(() => setPersistence(auth, browserSessionPersistence))
-        .catch((err) => {
-          console.warn('Auth persistence fallback warning:', err);
-        });
+export async function ensureBrowserLocalPersistence(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+  } catch (localErr) {
+    try {
+      await setPersistence(auth, indexedDBLocalPersistence);
+    } catch {
+      try {
+        await setPersistence(auth, browserSessionPersistence);
+      } catch {
+        console.warn('Auth persistence fallback warning:', localErr);
+      }
+    }
+  }
+}
+
+export const authPersistenceReady: Promise<void> = ensureBrowserLocalPersistence();
 
 if (typeof window !== 'undefined') {
   const recaptchaSiteKey = import.meta.env.VITE_FIREBASE_APP_CHECK_KEY || firebaseConfig.recaptchaSiteKey;

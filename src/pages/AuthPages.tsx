@@ -1,16 +1,24 @@
 import React, {useEffect, useState} from 'react';
 import {Link, useNavigate, useSearchParams} from 'react-router-dom';
 import {
+  browserLocalPersistence,
   browserPopupRedirectResolver,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
   signInWithRedirect,
   updateProfile,
 } from 'firebase/auth';
 import {Eye, EyeOff, Loader2, Mail, ShieldCheck} from 'lucide-react';
-import {auth, authPersistenceReady, formatFirebaseAuthError, googleProvider} from '../lib/firebase';
+import {
+  auth,
+  authPersistenceReady,
+  ensureBrowserLocalPersistence,
+  formatFirebaseAuthError,
+  googleProvider,
+} from '../lib/firebase';
 import {
   AUTH_REDIRECT_PATH_KEY,
   GOOGLE_REDIRECT_PENDING_KEY,
@@ -42,6 +50,8 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const {
     user,
+    profileSynced,
+    syncUserProfile,
     authReady,
     redirectChecked,
     redirectAuthError,
@@ -66,15 +76,16 @@ export const LoginPage: React.FC = () => {
       (typeof window !== 'undefined' ? sessionStorage.getItem(AUTH_REDIRECT_PATH_KEY) : null)
   );
 
+  // Only redirect after BOTH Firebase Auth AND Firestore users/{uid} persistence finish
   useEffect(() => {
-    if (authReady && redirectChecked && user) {
+    if (authReady && redirectChecked && user && profileSynced && busyMode === null) {
       const target = sanitizeRedirectPath(
         searchParams.get('redirect') || sessionStorage.getItem(AUTH_REDIRECT_PATH_KEY)
       );
       sessionStorage.removeItem(AUTH_REDIRECT_PATH_KEY);
       navigate(target, {replace: true});
     }
-  }, [authReady, redirectChecked, user, navigate, searchParams]);
+  }, [authReady, redirectChecked, user, profileSynced, busyMode, navigate, searchParams]);
 
   const switchTab = (tab: AuthTab) => {
     setActiveTab(tab);
@@ -90,8 +101,12 @@ export const LoginPage: React.FC = () => {
     setBusyMode('popup');
     try {
       await authPersistenceReady;
+      await setPersistence(auth, browserLocalPersistence).catch(() => ensureBrowserLocalPersistence());
       sessionStorage.setItem(AUTH_REDIRECT_PATH_KEY, requestedRedirect);
-      await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+
+      const cred = await signInWithPopup(auth, googleProvider, browserPopupRedirectResolver);
+      await syncUserProfile(cred.user);
+
       sessionStorage.removeItem(AUTH_REDIRECT_PATH_KEY);
       showToast('Signed in with Google');
       navigate(requestedRedirect, {replace: true});
@@ -112,16 +127,16 @@ export const LoginPage: React.FC = () => {
       } else {
         setAuthError(formatFirebaseAuthError(err));
       }
+    } finally {
       setBusyMode(null);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleRedirectSignIn = async () => {
     setAuthError(null);
     setAuthInfo(null);
     clearRedirectAuthError();
 
-    // Google OAuth blocks cross-origin iframe redirects via X-Frame-Options: DENY
     if (isEmbeddedIframe()) {
       await handleGooglePopupSignIn();
       return;
@@ -130,6 +145,7 @@ export const LoginPage: React.FC = () => {
     setBusyMode('redirect');
     try {
       await authPersistenceReady;
+      await setPersistence(auth, browserLocalPersistence).catch(() => ensureBrowserLocalPersistence());
       sessionStorage.setItem(AUTH_REDIRECT_PATH_KEY, requestedRedirect);
       sessionStorage.setItem(GOOGLE_REDIRECT_PENDING_KEY, String(Date.now()));
       await signInWithRedirect(auth, googleProvider, browserPopupRedirectResolver);
@@ -139,6 +155,8 @@ export const LoginPage: React.FC = () => {
       setBusyMode(null);
     }
   };
+
+  const handleGoogleSignIn = handleGooglePopupSignIn;
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,12 +181,15 @@ export const LoginPage: React.FC = () => {
     setBusyMode('email');
     try {
       await authPersistenceReady;
+      await setPersistence(auth, browserLocalPersistence).catch(() => ensureBrowserLocalPersistence());
       if (emailMode === 'signup') {
         const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
         await updateProfile(cred.user, {displayName: fullName.trim().slice(0, 120)}).catch(() => {});
+        await syncUserProfile(cred.user);
         showToast('Account created and signed in');
       } else {
-        await signInWithEmailAndPassword(auth, cleanEmail, password);
+        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
+        await syncUserProfile(cred.user);
         showToast('Signed in with Email');
       }
       sessionStorage.removeItem(AUTH_REDIRECT_PATH_KEY);
@@ -284,14 +305,14 @@ export const LoginPage: React.FC = () => {
               </span>
             </button>
 
-            {!checkingRedirect && (
+            {!checkingRedirect && !isEmbeddedIframe() && (
               <button
                 type="button"
                 disabled={busy}
-                onClick={handleGooglePopupSignIn}
+                onClick={handleGoogleRedirectSignIn}
                 className="w-full py-2.5 px-4 rounded-full border border-light-outline-variant dark:border-dark-outline-variant text-xs font-semibold text-light-on-surface-variant dark:text-dark-on-surface-variant hover:bg-light-surface-container-low dark:hover:bg-dark-surface-container transition-colors disabled:opacity-60"
               >
-                Having trouble redirecting? Sign in with Google Popup
+                Having trouble with popup? Sign in with Google Redirect
               </button>
             )}
           </div>

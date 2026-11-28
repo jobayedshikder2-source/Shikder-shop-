@@ -63,16 +63,18 @@ service cloud.firestore {
     function isValidUserProfile(data, uid) {
       return data.keys().hasAll(['uid', 'name', 'email', 'role', 'createdAt', 'updatedAt']) &&
         data.keys().hasOnly([
-          'uid', 'name', 'email', 'phone', 'photoURL', 'role',
+          'uid', 'name', 'displayName', 'email', 'phone', 'photoURL', 'provider', 'role',
           'division', 'district', 'upazila', 'area', 'fullAddress',
-          'pushEnabled', 'fcmToken', 'createdAt', 'updatedAt'
+          'pushEnabled', 'fcmToken', 'lastLoginAt', 'createdAt', 'updatedAt'
         ]) &&
         data.uid == uid &&
         isValidString(data.name, 1, 120) &&
+        (!('displayName' in data) || isValidString(data.displayName, 1, 120)) &&
         isValidString(data.email, 3, 200) &&
         data.role in ['customer', 'admin'] &&
         (!('phone' in data) || isValidString(data.phone, 0, 20)) &&
         (!('photoURL' in data) || isValidString(data.photoURL, 0, 500)) &&
+        (!('provider' in data) || isValidString(data.provider, 1, 40)) &&
         (!('division' in data) || isValidString(data.division, 0, 60)) &&
         (!('district' in data) || isValidString(data.district, 0, 60)) &&
         (!('upazila' in data) || isValidString(data.upazila, 0, 80)) &&
@@ -80,6 +82,7 @@ service cloud.firestore {
         (!('fullAddress' in data) || isValidString(data.fullAddress, 0, 300)) &&
         (!('pushEnabled' in data) || data.pushEnabled is bool) &&
         (!('fcmToken' in data) || isValidString(data.fcmToken, 0, 500)) &&
+        (!('lastLoginAt' in data) || data.lastLoginAt is timestamp) &&
         data.createdAt is timestamp &&
         data.updatedAt is timestamp;
     }
@@ -171,8 +174,9 @@ service cloud.firestore {
         data.keys().hasOnly([
           'orderNumber', 'idempotencyKey', 'userId', 'customerInfo', 'items',
           'subtotal', 'discountAmount', 'couponCode', 'deliveryCharge', 'totalAmount',
-          'paymentMethod', 'paymentStatus', 'orderStatus', 'trackingCode', 'timeline',
-          'createdAt', 'updatedAt'
+          'paymentMethod', 'paymentStatus', 'orderStatus',
+          'verificationStatus', 'verificationMessage', 'verifiedAt',
+          'trackingCode', 'timeline', 'createdAt', 'updatedAt'
         ]) &&
         isValidString(data.orderNumber, 6, 40) &&
         isValidString(data.idempotencyKey, 8, 128) &&
@@ -200,6 +204,9 @@ service cloud.firestore {
           'Pending', 'Confirmed', 'Processing', 'Packed', 'Shipped',
           'Out for Delivery', 'Delivered', 'Cancelled', 'Return Requested', 'Returned', 'Refunded'
         ] &&
+        (!('verificationStatus' in data) || data.verificationStatus in ['Order Created', 'Verification Pending', 'Verified', 'Verification Failed']) &&
+        (!('verificationMessage' in data) || isValidString(data.verificationMessage, 0, 300)) &&
+        (!('verifiedAt' in data) || data.verifiedAt is timestamp) &&
         (!('trackingCode' in data) || isValidString(data.trackingCode, 0, 80)) &&
         (!('timeline' in data) || (data.timeline is list && data.timeline.size() <= 30)) &&
         data.createdAt is timestamp &&
@@ -343,7 +350,8 @@ service cloud.firestore {
       allow list: if isBootstrappedAdmin();
       allow create: if isValidId(uid) && isOwner(uid) && isValidUserProfile(incoming(), uid) &&
         (incoming().role == 'customer' || isBootstrappedAdmin()) &&
-        incoming().createdAt == request.time && incoming().updatedAt == request.time;
+        incoming().createdAt == request.time && incoming().updatedAt == request.time &&
+        (!('lastLoginAt' in incoming()) || incoming().lastLoginAt == request.time);
       allow update: if isValidId(uid) && isSignedIn() && isValidUserProfile(incoming(), uid) && (
         (
           isAdmin() &&
@@ -357,8 +365,9 @@ service cloud.firestore {
           incoming().createdAt == existing().createdAt &&
           incoming().updatedAt == request.time &&
           incoming().diff(existing()).affectedKeys().hasOnly([
-            'name', 'email', 'phone', 'photoURL', 'division', 'district',
-            'upazila', 'area', 'fullAddress', 'pushEnabled', 'fcmToken', 'updatedAt'
+            'name', 'displayName', 'email', 'phone', 'photoURL', 'provider',
+            'division', 'district', 'upazila', 'area', 'fullAddress',
+            'pushEnabled', 'fcmToken', 'lastLoginAt', 'updatedAt'
           ])
         )
       );
@@ -442,6 +451,7 @@ service cloud.firestore {
         incoming().userId == request.auth.uid &&
         incoming().orderStatus == 'Pending' &&
         incoming().paymentStatus == 'unpaid' &&
+        (!('verificationStatus' in incoming()) || incoming().verificationStatus in ['Order Created', 'Verification Pending']) &&
         incoming().createdAt == request.time &&
         incoming().updatedAt == request.time;
       allow update: if isValidId(orderId) && isSignedIn() && isValidOrder(incoming()) && (
@@ -452,6 +462,16 @@ service cloud.firestore {
           incoming().idempotencyKey == existing().idempotencyKey &&
           incoming().totalAmount == existing().totalAmount &&
           incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time
+        ) || (
+          existing().userId == request.auth.uid &&
+          incoming().userId == existing().userId &&
+          incoming().orderNumber == existing().orderNumber &&
+          incoming().idempotencyKey == existing().idempotencyKey &&
+          incoming().totalAmount == existing().totalAmount &&
+          incoming().paymentStatus == existing().paymentStatus &&
+          incoming().orderStatus == existing().orderStatus &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['verificationStatus', 'verificationMessage', 'verifiedAt', 'updatedAt']) &&
           incoming().updatedAt == request.time
         ) || (
           existing().userId == request.auth.uid &&

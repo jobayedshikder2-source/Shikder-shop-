@@ -19,9 +19,11 @@
       "properties": {
         "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
         "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
         "email": { "type": "string", "format": "email", "maxLength": 200 },
         "phone": { "type": "string", "pattern": "^(\\+?880|0)1[3-9][0-9]{8}$", "maxLength": 20 },
         "photoURL": { "type": "string", "maxLength": 500 },
+        "provider": { "type": "string", "maxLength": 40 },
         "role": { "type": "string", "enum": ["customer", "admin"] },
         "division": { "type": "string", "maxLength": 60 },
         "district": { "type": "string", "maxLength": 60 },
@@ -29,6 +31,7 @@
         "area": { "type": "string", "maxLength": 100 },
         "fullAddress": { "type": "string", "maxLength": 300 },
         "pushEnabled": { "type": "boolean" },
+        "lastLoginAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
@@ -139,6 +142,12 @@
           "type": "string",
           "enum": ["Pending", "Confirmed", "Processing", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled", "Return Requested", "Returned", "Refunded"]
         },
+        "verificationStatus": {
+          "type": "string",
+          "enum": ["Order Created", "Verification Pending", "Verified", "Verification Failed"]
+        },
+        "verificationMessage": { "type": "string", "maxLength": 300 },
+        "verifiedAt": { "type": "string", "format": "date-time" },
         "trackingCode": { "type": "string", "maxLength": 80 },
         "timeline": { "type": "array" },
         "createdAt": { "type": "string", "format": "date-time" },

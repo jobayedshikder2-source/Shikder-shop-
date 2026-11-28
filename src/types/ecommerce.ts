@@ -13,6 +13,12 @@ export type OrderStatus =
   | 'Returned'
   | 'Refunded';
 
+export type OrderVerificationStatus =
+  | 'Order Created'
+  | 'Verification Pending'
+  | 'Verified'
+  | 'Verification Failed';
+
 export type PaymentMethod = 'cod';
 export type PaymentStatus = 'unpaid' | 'paid' | 'refunded' | 'failed';
 
@@ -92,9 +98,11 @@ export interface CartItem {
 export interface UserProfile {
   uid: string;
   name: string;
+  displayName?: string;
   email: string;
   phone?: string;
   photoURL?: string;
+  provider?: string;
   role: 'customer' | 'admin';
   division?: string;
   district?: string;
@@ -103,6 +111,7 @@ export interface UserProfile {
   fullAddress?: string;
   pushEnabled?: boolean;
   fcmToken?: string;
+  lastLoginAt?: unknown;
   createdAt?: unknown;
   updatedAt?: unknown;
 }
@@ -153,6 +162,9 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
+  verificationStatus?: OrderVerificationStatus;
+  verificationMessage?: string;
+  verifiedAt?: unknown;
   trackingCode?: string;
   timeline: OrderTimelineEvent[];
   createdAt?: unknown;

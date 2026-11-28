@@ -3,6 +3,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
   limit,
   onSnapshot,
@@ -47,6 +48,7 @@ import type {
   Order,
   OrderItemSnapshot,
   OrderStatus,
+  OrderVerificationStatus,
   PaymentMethod,
   PaymentSettings,
   PaymentStatus,
@@ -83,83 +85,159 @@ function sortByCreatedAtDesc<T extends {createdAt?: unknown}>(items: T[]): T[] {
   return [...items].sort((a, b) => toEpochMs(b.createdAt) - toEpochMs(a.createdAt));
 }
 
-export async function ensureUserProfile(user: User): Promise<UserProfile> {
-  const path = `users/${user.uid}`;
-  try {
-    const userRef = doc(db, 'users', user.uid);
-    const snap = await getDoc(userRef);
-    const isBootstrapAdmin = isBootstrappedAdminUser(user);
+const inFlightProfileSaves = new Map<string, Promise<UserProfile>>();
 
-    if (isBootstrapAdmin) {
-      const adminRef = doc(db, 'admins', user.uid);
-      const adminSnap = await getDoc(adminRef);
-      if (!adminSnap.exists()) {
-        await setDoc(adminRef, {
-          uid: user.uid,
-          email: (user.email || BOOTSTRAPPED_ADMIN_EMAIL).trim().slice(0, 200),
-          role: 'admin',
-          createdAt: serverTimestamp(),
-        });
+function resolveUserProvider(user: User, fallback?: string): string {
+  const providerId = user.providerData?.find((p) => Boolean(p?.providerId))?.providerId;
+  return (providerId || fallback || 'password').trim().slice(0, 40) || 'password';
+}
+
+export function ensureUserProfile(user: User): Promise<UserProfile> {
+  const existingPromise = inFlightProfileSaves.get(user.uid);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const savePromise = (async (): Promise<UserProfile> => {
+    const path = `users/${user.uid}`;
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const snap = await getDoc(userRef);
+      const isBootstrapAdmin = isBootstrappedAdminUser(user);
+
+      if (isBootstrapAdmin) {
+        const adminRef = doc(db, 'admins', user.uid);
+        const adminSnap = await getDoc(adminRef);
+        if (!adminSnap.exists()) {
+          await setDoc(adminRef, {
+            uid: user.uid,
+            email: (user.email || BOOTSTRAPPED_ADMIN_EMAIL).trim().slice(0, 200),
+            role: 'admin',
+            createdAt: serverTimestamp(),
+          });
+        }
       }
-    }
 
-    if (!snap.exists()) {
-      const safeName =
-        (user.displayName || user.email?.split('@')[0] || user.phoneNumber || 'Customer')
+      const existingData = snap.exists() ? (snap.data() as UserProfile) : undefined;
+      const safeDisplayName =
+        (
+          user.displayName ||
+          existingData?.displayName ||
+          existingData?.name ||
+          user.email?.split('@')[0] ||
+          user.phoneNumber ||
+          'Customer'
+        )
           .trim()
           .slice(0, 120) || 'Customer';
-      const safeEmail = (user.email || `${user.uid.slice(0, 12)}@phone.shikdershop.bd`).trim().slice(0, 200);
-      const safePhone = user.phoneNumber ? user.phoneNumber.trim().slice(0, 20) : undefined;
-      const safePhoto = (user.photoURL || '').trim().slice(0, 500);
-      const newProfile: Record<string, unknown> = {
-        uid: user.uid,
+      const safeName = (existingData?.name || safeDisplayName).trim().slice(0, 120) || 'Customer';
+      const safeEmail = (
+        user.email ||
+        existingData?.email ||
+        `${user.uid.slice(0, 12)}@user.shikdershop.bd`
+      )
+        .trim()
+        .slice(0, 200);
+      const safePhone = user.phoneNumber
+        ? user.phoneNumber.trim().slice(0, 20)
+        : existingData?.phone?.trim().slice(0, 20);
+      const safePhoto = (user.photoURL ?? existingData?.photoURL ?? '').trim().slice(0, 500);
+      const safeProvider = resolveUserProvider(user, existingData?.provider);
+
+      let resolvedRole: 'customer' | 'admin' = existingData?.role === 'admin' ? 'admin' : 'customer';
+      if (isBootstrapAdmin) {
+        resolvedRole = 'admin';
+      } else if (resolvedRole !== 'admin') {
+        const adminSnap = await getDoc(doc(db, 'admins', user.uid)).catch(() => null);
+        if (adminSnap?.exists()) {
+          resolvedRole = 'admin';
+        }
+      }
+
+      if (!snap.exists()) {
+        const createPayload: Record<string, unknown> = {
+          uid: user.uid,
+          name: safeName,
+          displayName: safeDisplayName,
+          email: safeEmail,
+          ...(safePhone ? {phone: safePhone} : {}),
+          photoURL: safePhoto,
+          provider: safeProvider,
+          role: resolvedRole,
+          pushEnabled: false,
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        await setDoc(userRef, createPayload, {merge: true});
+
+        const welcomeRef = doc(db, 'notifications', `welcome-${user.uid}`);
+        const welcomeSnap = await getDoc(welcomeRef).catch(() => null);
+        if (!welcomeSnap?.exists()) {
+          await setDoc(welcomeRef, {
+            userId: user.uid,
+            targetRole: 'customer',
+            title: 'Welcome to SHIKDER SHOP',
+            body: 'Enjoy Cash on Delivery across 64 districts and use SHIKDER250 for ৳250 off.',
+            type: 'welcome',
+            isRead: false,
+            link: '/products',
+            createdAt: serverTimestamp(),
+          }).catch(() => {});
+        }
+
+        return {
+          uid: user.uid,
+          name: safeName,
+          displayName: safeDisplayName,
+          email: safeEmail,
+          ...(safePhone ? {phone: safePhone} : {}),
+          photoURL: safePhoto,
+          provider: safeProvider,
+          role: resolvedRole,
+          pushEnabled: false,
+        };
+      }
+
+      const mergePayload: Record<string, unknown> = {
         name: safeName,
+        displayName: safeDisplayName,
         email: safeEmail,
-        ...(safePhone ? {phone: safePhone} : {}),
-        role: isBootstrapAdmin ? 'admin' : 'customer',
         photoURL: safePhoto,
-        pushEnabled: false,
-        createdAt: serverTimestamp(),
+        provider: safeProvider,
+        lastLoginAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
-      await setDoc(userRef, newProfile);
-      const welcomeRef = doc(db, 'notifications', `welcome-${user.uid}`);
-      const welcomeSnap = await getDoc(welcomeRef).catch(() => null);
-      if (!welcomeSnap?.exists()) {
-        await setDoc(welcomeRef, {
-          userId: user.uid,
-          targetRole: 'customer',
-          title: 'Welcome to SHIKDER SHOP',
-          body: 'Enjoy Cash on Delivery across 64 districts and use SHIKDER250 for ৳250 off.',
-          type: 'welcome',
-          isRead: false,
-          link: '/products',
-          createdAt: serverTimestamp(),
-        }).catch(() => {});
+      if (safePhone && !existingData?.phone) {
+        mergePayload.phone = safePhone;
       }
+      if (isBootstrapAdmin && existingData?.role !== 'admin') {
+        mergePayload.role = 'admin';
+      }
+
+      await setDoc(userRef, mergePayload, {merge: true});
+
       return {
+        ...existingData,
         uid: user.uid,
         name: safeName,
+        displayName: safeDisplayName,
         email: safeEmail,
         ...(safePhone ? {phone: safePhone} : {}),
-        role: isBootstrapAdmin ? 'admin' : 'customer',
         photoURL: safePhoto,
-        pushEnabled: false,
+        provider: safeProvider,
+        role: resolvedRole,
       };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    } finally {
+      inFlightProfileSaves.delete(user.uid);
     }
+  })();
 
-    const data = snap.data() as UserProfile;
-    let role = data.role;
-    if (!isBootstrapAdmin && role !== 'admin') {
-      const adminSnap = await getDoc(doc(db, 'admins', user.uid)).catch(() => null);
-      if (adminSnap?.exists()) role = 'admin';
-    } else if (isBootstrapAdmin) {
-      role = 'admin';
-    }
-    return {...data, uid: user.uid, role};
-  } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
-  }
+  inFlightProfileSaves.set(user.uid, savePromise);
+  return savePromise;
 }
 
 export async function updateCustomerProfile(
@@ -417,38 +495,47 @@ export async function validateCouponOnFirestore(code: string, subtotal: number):
   }
 }
 
-export async function placeTransactionalOrder(params: {
+export interface CreateOrderResult {
+  order: Order;
+  alreadyExisted: boolean;
+}
+
+export interface OrderVerificationResult {
+  status: OrderVerificationStatus;
+  kind: 'ok' | 'network_error' | 'verification_error';
+  message: string;
+  order?: Order;
+}
+
+function isLikelyNetworkError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  const code =
+    typeof err === 'object' && err !== null && 'code' in err
+      ? String((err as {code?: unknown}).code || '').toLowerCase()
+      : '';
+  return (
+    code === 'unavailable' ||
+    code === 'deadline-exceeded' ||
+    msg.includes('client is offline') ||
+    msg.includes('network') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('load failed') ||
+    msg.includes('fetch') ||
+    msg.includes('timed out')
+  );
+}
+
+export async function createTransactionalOrder(params: {
   uid: string;
   idempotencyKey: string;
   customerInfo: CustomerShippingInfo;
   cartItems: CartItem[];
   couponCode?: string;
   paymentMethod: PaymentMethod;
-  idToken?: string;
-}): Promise<Order> {
-  const {uid, idempotencyKey, customerInfo, cartItems, couponCode, paymentMethod, idToken} = params;
+}): Promise<CreateOrderResult> {
+  const {uid, idempotencyKey, customerInfo, cartItems, couponCode, paymentMethod} = params;
   if (!cartItems.length) {
     throw new Error('Your cart is empty');
-  }
-
-  // Server-side validation call (verifies payload shape, BD phone, rate limit, payment availability)
-  const verifyRes = await fetch('/api/checkout/verify', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(idToken ? {Authorization: `Bearer ${idToken}`} : {}),
-    },
-    body: JSON.stringify({
-      idempotencyKey,
-      customerInfo,
-      items: cartItems,
-      couponCode: couponCode || '',
-      paymentMethod,
-    }),
-  });
-  if (!verifyRes.ok) {
-    const errBody = await verifyRes.json().catch(() => ({}));
-    throw new Error(errBody.error || 'Checkout verification failed');
   }
 
   const orderNumber = `ORD-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -458,7 +545,17 @@ export async function placeTransactionalOrder(params: {
     const result = await runTransaction(db, async (tx) => {
       const existingOrderSnap = await tx.get(orderRef);
       if (existingOrderSnap.exists()) {
-        throw new Error('Duplicate order submission detected. This order was already placed.');
+        const existingData = existingOrderSnap.data() as Omit<Order, 'id'>;
+        if (existingData.userId !== uid) {
+          throw new Error('Order ID belongs to another session. Starting a fresh checkout reference.');
+        }
+        return {
+          alreadyExisted: true,
+          order: {
+            id: existingOrderSnap.id,
+            ...existingData,
+          } as Order,
+        };
       }
 
       const shipSnap = await tx.get(doc(db, 'settings', 'shipping'));
@@ -610,6 +707,8 @@ export async function placeTransactionalOrder(params: {
         paymentMethod,
         paymentStatus: 'unpaid' as PaymentStatus,
         orderStatus: 'Pending' as OrderStatus,
+        verificationStatus: 'Verification Pending' as OrderVerificationStatus,
+        verificationMessage: 'Order created in Firestore. Verifying order details...',
         trackingCode: '',
         timeline,
         createdAt: serverTimestamp(),
@@ -634,11 +733,14 @@ export async function placeTransactionalOrder(params: {
       });
 
       return {
-        id: idempotencyKey,
-        ...orderDocData,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      } as Order;
+        alreadyExisted: false,
+        order: {
+          id: idempotencyKey,
+          ...orderDocData,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        } as Order,
+      };
     });
 
     return result;
@@ -646,13 +748,182 @@ export async function placeTransactionalOrder(params: {
     if (
       error instanceof Error &&
       (error.message.includes('Insufficient stock') ||
-        error.message.includes('Duplicate order') ||
-        error.message.includes('unavailable'))
+        error.message.includes('unavailable') ||
+        error.message.includes('Order ID belongs'))
     ) {
       throw error;
     }
     handleFirestoreError(error, OperationType.WRITE, `orders/${idempotencyKey}`);
   }
+}
+
+export async function verifySavedOrderById(params: {
+  uid: string;
+  orderId: string;
+  idToken?: string;
+}): Promise<OrderVerificationResult> {
+  const {uid, orderId} = params;
+  const orderRef = doc(db, 'orders', orderId);
+
+  let savedSnap;
+  try {
+    savedSnap = await getDocFromServer(orderRef);
+  } catch (err) {
+    if (isLikelyNetworkError(err)) {
+      return {
+        status: 'Verification Pending',
+        kind: 'network_error',
+        message:
+          'Your order was created, but Firestore could not be reached right now due to a network error. Your order is preserved—retry verification once connected.',
+      };
+    }
+    return {
+      status: 'Verification Failed',
+      kind: 'verification_error',
+      message: err instanceof Error ? err.message : 'Unable to confirm saved order record from Firestore.',
+    };
+  }
+
+  if (!savedSnap.exists()) {
+    return {
+      status: 'Verification Failed',
+      kind: 'verification_error',
+      message: `Saved order document ${orderId} was not found in Firestore.`,
+    };
+  }
+
+  const savedOrder = {id: savedSnap.id, ...(savedSnap.data() as Omit<Order, 'id'>)} as Order;
+
+  const expectedTotal = savedOrder.subtotal - savedOrder.discountAmount + savedOrder.deliveryCharge;
+  const integrityValid =
+    savedOrder.userId === uid &&
+    savedOrder.idempotencyKey === orderId &&
+    Array.isArray(savedOrder.items) &&
+    savedOrder.items.length >= 1 &&
+    savedOrder.totalAmount > 0 &&
+    savedOrder.totalAmount === expectedTotal;
+
+  if (!integrityValid) {
+    const failureMsg = 'Saved order data failed integrity verification checks.';
+    await updateDoc(orderRef, {
+      verificationStatus: 'Verification Failed' as OrderVerificationStatus,
+      verificationMessage: failureMsg,
+      updatedAt: serverTimestamp(),
+    }).catch(() => {});
+    return {
+      status: 'Verification Failed',
+      kind: 'verification_error',
+      message: failureMsg,
+      order: {
+        ...savedOrder,
+        verificationStatus: 'Verification Failed',
+        verificationMessage: failureMsg,
+      },
+    };
+  }
+
+  let verifyRes: Response;
+  try {
+    const token = params.idToken || (await import('../lib/firebase').then((m) => m.auth.currentUser?.getIdToken())) || '';
+    verifyRes = await fetch('/api/checkout/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? {Authorization: `Bearer ${token}`} : {}),
+      },
+      body: JSON.stringify({
+        orderId: savedOrder.id,
+        orderNumber: savedOrder.orderNumber,
+        idempotencyKey: savedOrder.idempotencyKey,
+        totalAmount: savedOrder.totalAmount,
+        customerInfo: savedOrder.customerInfo,
+        items: savedOrder.items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+        couponCode: savedOrder.couponCode || '',
+        paymentMethod: savedOrder.paymentMethod,
+      }),
+    });
+  } catch {
+    return {
+      status: 'Verification Pending',
+      kind: 'network_error',
+      message:
+        'Your order is saved in Firestore, but a network error interrupted server verification. Do not re-submit your order—use Retry Verification.',
+      order: savedOrder,
+    };
+  }
+
+  const contentType = verifyRes.headers.get('content-type') || '';
+  if (verifyRes.status >= 500 || !contentType.includes('application/json')) {
+    return {
+      status: 'Verification Pending',
+      kind: 'network_error',
+      message:
+        'Your order is saved, but the verification endpoint is temporarily unavailable. Your order is preserved—please retry verification shortly.',
+      order: savedOrder,
+    };
+  }
+
+  const verifyBody = (await verifyRes.json().catch(() => ({}))) as {
+    ok?: boolean;
+    verified?: boolean;
+    error?: string;
+    verifiedAt?: string;
+  };
+
+  if (!verifyRes.ok || !verifyBody.ok || !verifyBody.verified) {
+    const failureMsg = verifyBody.error || 'Server verification rejected the order details.';
+    await updateDoc(orderRef, {
+      verificationStatus: 'Verification Failed' as OrderVerificationStatus,
+      verificationMessage: failureMsg.slice(0, 300),
+      updatedAt: serverTimestamp(),
+    }).catch(() => {});
+    return {
+      status: 'Verification Failed',
+      kind: 'verification_error',
+      message: failureMsg,
+      order: {
+        ...savedOrder,
+        verificationStatus: 'Verification Failed',
+        verificationMessage: failureMsg,
+      },
+    };
+  }
+
+  const verifiedMsg = 'Order saved in Firestore and verified.';
+  await updateDoc(orderRef, {
+    verificationStatus: 'Verified' as OrderVerificationStatus,
+    verificationMessage: verifiedMsg,
+    verifiedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }).catch(() => {});
+
+  return {
+    status: 'Verified',
+    kind: 'ok',
+    message: verifiedMsg,
+    order: {
+      ...savedOrder,
+      verificationStatus: 'Verified',
+      verificationMessage: verifiedMsg,
+      verifiedAt: verifyBody.verifiedAt || new Date().toISOString(),
+    },
+  };
+}
+
+export async function placeTransactionalOrder(params: {
+  uid: string;
+  idempotencyKey: string;
+  customerInfo: CustomerShippingInfo;
+  cartItems: CartItem[];
+  couponCode?: string;
+  paymentMethod: PaymentMethod;
+  idToken?: string;
+}): Promise<Order> {
+  const {order} = await createTransactionalOrder(params);
+  return order;
 }
 
 export async function fetchCustomerOrders(uid: string): Promise<Order[]> {
