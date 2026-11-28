@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import {BD_DIVISIONS, BD_PHONE_REGEX, formatBDT, normalizeBdPhone} from '../src/lib/bd-locations.ts';
+import {
+  BD_DIVISIONS,
+  BD_PHONE_REGEX,
+  formatBDT,
+  getInstagramUrl,
+  getWhatsAppUrl,
+  normalizeBdPhone,
+} from '../src/lib/bd-locations.ts';
+import {DEFAULT_WEBSITE_SETTINGS} from '../src/data/seedCatalog.ts';
 import {checkoutSchema, couponSchema, productSchema, reviewSchema} from '../src/lib/validators.ts';
 import {DIRTY_DOZEN_TESTS} from '../firestore.rules.test.ts';
 
@@ -13,6 +21,18 @@ test('Bangladesh phone regex & normalization handle local and international form
   assert.equal(BD_PHONE_REGEX.test('017123456'), false); // too short
   assert.equal(normalizeBdPhone('017 1234-5678'), '+8801712345678');
   assert.equal(normalizeBdPhone('+8801812345678'), '+8801812345678');
+});
+
+test('WhatsApp, Instagram helpers and default store details match updated contact config', () => {
+  assert.equal(getWhatsAppUrl('01996266204'), 'https://wa.me/8801996266204');
+  assert.equal(getWhatsAppUrl('+880 1996-266204'), 'https://wa.me/8801996266204');
+  assert.equal(getInstagramUrl('@shikdershop'), 'https://www.instagram.com/shikdershop/');
+  assert.equal(
+    getInstagramUrl('https://www.instagram.com/shikdershop_bd/'),
+    'https://www.instagram.com/shikdershop_bd/'
+  );
+  assert.equal(DEFAULT_WEBSITE_SETTINGS.whatsappNumber, '01996266204');
+  assert.match(DEFAULT_WEBSITE_SETTINGS.address, /Asuliya/i);
 });
 
 test('Bangladesh divisions cover all 8 administrative divisions and 64 districts', () => {
@@ -119,7 +139,7 @@ test('Firestore service avoids unindexed where+orderBy queries and aggregates mu
   assert.match(serviceText, /sortByCreatedAtDesc/);
 });
 
-test('Google Authentication uses signInWithRedirect, getRedirectResult, IndexedDB persistence, and Vercel SPA rewrites', () => {
+test('Authentication supports Google redirect/popup, Phone OTP, and Email/Password sign-in', () => {
   const firebaseText = fs.readFileSync(new URL('../src/lib/firebase.ts', import.meta.url), 'utf-8');
   const contextText = fs.readFileSync(new URL('../src/context/StoreContext.tsx', import.meta.url), 'utf-8');
   const authPageText = fs.readFileSync(new URL('../src/pages/AuthPages.tsx', import.meta.url), 'utf-8');
@@ -131,7 +151,39 @@ test('Google Authentication uses signInWithRedirect, getRedirectResult, IndexedD
   assert.match(contextText, /getRedirectResult/);
   assert.match(authPageText, /signInWithRedirect/);
   assert.match(authPageText, /signInWithPopup/);
+  assert.match(authPageText, /signInWithPhoneNumber/);
+  assert.match(authPageText, /RecaptchaVerifier/);
+  assert.match(authPageText, /signInWithEmailAndPassword/);
+  assert.match(authPageText, /createUserWithEmailAndPassword/);
   assert.match(vercelConfig, /\/index\.html/);
 });
 
+test('Admin settings allow editing WhatsApp, Gmail, Address, Instagram and ProductCard shows average rating', () => {
+  const adminText = fs.readFileSync(new URL('../src/pages/AdminDashboardPage.tsx', import.meta.url), 'utf-8');
+  const cardText = fs.readFileSync(new URL('../src/components/ProductCard.tsx', import.meta.url), 'utf-8');
+  const privacyText = fs.readFileSync(new URL('../src/pages/InfoPages.tsx', import.meta.url), 'utf-8');
 
+  assert.match(adminText, /whatsappNumber/);
+  assert.match(adminText, /supportEmail/);
+  assert.match(adminText, /instagramUrl/);
+  assert.match(adminText, /webDraft\.address/);
+  assert.match(cardText, /ratingAvg/);
+  assert.match(cardText, /ratingCount/);
+  assert.match(privacyText, /PrivacyPolicyPage/);
+});
+
+test('ProductReviews component supports interactive star ratings, real-time Firestore sync, and author edit/delete', () => {
+  const componentText = fs.readFileSync(new URL('../src/components/ProductReviews.tsx', import.meta.url), 'utf-8');
+  const detailsText = fs.readFileSync(new URL('../src/pages/ProductDetailsPage.tsx', import.meta.url), 'utf-8');
+  const serviceText = fs.readFileSync(new URL('../src/services/firestoreService.ts', import.meta.url), 'utf-8');
+  const rulesText = fs.readFileSync(new URL('../firestore.rules', import.meta.url), 'utf-8');
+
+  assert.match(componentText, /subscribeToProductReviews/);
+  assert.match(componentText, /submitProductReview/);
+  assert.match(componentText, /updateCustomerReview/);
+  assert.match(componentText, /deleteProductReview/);
+  assert.match(componentText, /role="radiogroup"/);
+  assert.match(detailsText, /<ProductReviews/);
+  assert.match(serviceText, /onSnapshot/);
+  assert.match(rulesText, /hasOnly\(\['rating', 'comment', 'userName', 'isApproved'\]\)/);
+});

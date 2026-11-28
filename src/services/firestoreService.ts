@@ -104,13 +104,18 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
     }
 
     if (!snap.exists()) {
-      const safeName = (user.displayName || user.email?.split('@')[0] || 'Customer').trim().slice(0, 120) || 'Customer';
-      const safeEmail = (user.email || 'user@shikdershop.bd').trim().slice(0, 200);
+      const safeName =
+        (user.displayName || user.email?.split('@')[0] || user.phoneNumber || 'Customer')
+          .trim()
+          .slice(0, 120) || 'Customer';
+      const safeEmail = (user.email || `${user.uid.slice(0, 12)}@phone.shikdershop.bd`).trim().slice(0, 200);
+      const safePhone = user.phoneNumber ? user.phoneNumber.trim().slice(0, 20) : undefined;
       const safePhoto = (user.photoURL || '').trim().slice(0, 500);
       const newProfile: Record<string, unknown> = {
         uid: user.uid,
         name: safeName,
         email: safeEmail,
+        ...(safePhone ? {phone: safePhone} : {}),
         role: isBootstrapAdmin ? 'admin' : 'customer',
         photoURL: safePhoto,
         pushEnabled: false,
@@ -136,6 +141,7 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
         uid: user.uid,
         name: safeName,
         email: safeEmail,
+        ...(safePhone ? {phone: safePhone} : {}),
         role: isBootstrapAdmin ? 'admin' : 'customer',
         photoURL: safePhoto,
         pushEnabled: false,
@@ -297,9 +303,27 @@ export async function fetchStorefrontCatalog(includeInactive = false) {
     const paymentSettings: PaymentSettings = paySnap?.exists()
       ? (paySnap.data().data as PaymentSettings)
       : DEFAULT_PAYMENT_SETTINGS;
-    const websiteSettings: WebsiteSettings = webSnap?.exists()
-      ? (webSnap.data().data as WebsiteSettings)
-      : DEFAULT_WEBSITE_SETTINGS;
+    const rawWeb = webSnap?.exists()
+      ? (webSnap.data().data as Partial<WebsiteSettings>)
+      : {};
+    const websiteSettings: WebsiteSettings = {
+      ...DEFAULT_WEBSITE_SETTINGS,
+      ...rawWeb,
+      supportPhone:
+        rawWeb.supportPhone && rawWeb.supportPhone !== '+880 1700-000000'
+          ? rawWeb.supportPhone
+          : DEFAULT_WEBSITE_SETTINGS.supportPhone,
+      whatsappNumber: rawWeb.whatsappNumber || DEFAULT_WEBSITE_SETTINGS.whatsappNumber,
+      supportEmail:
+        rawWeb.supportEmail && rawWeb.supportEmail !== 'support@shikdershop.com.bd'
+          ? rawWeb.supportEmail
+          : DEFAULT_WEBSITE_SETTINGS.supportEmail,
+      address:
+        rawWeb.address && rawWeb.address !== 'House 14, Road 6, Banani, Dhaka 1213, Bangladesh'
+          ? rawWeb.address
+          : DEFAULT_WEBSITE_SETTINGS.address,
+      instagramUrl: rawWeb.instagramUrl || DEFAULT_WEBSITE_SETTINGS.instagramUrl,
+    };
 
     return {
       products,
@@ -808,20 +832,147 @@ export async function fetchProductReviews(productId: string, uid?: string): Prom
   }
 }
 
-export async function submitProductReview(productId: string, user: User, rating: number, comment: string, isAdminUser: boolean) {
+export function subscribeToProductReviews(
+  productId: string,
+  uid: string | undefined,
+  onData: (reviews: Review[]) => void,
+  onError: (error: Error) => void
+): Unsubscribe {
+  const cleanProductId = productId.trim();
+  if (!cleanProductId || !/^[a-zA-Z0-9_-]{1,128}$/.test(cleanProductId)) {
+    onData([]);
+    return () => {};
+  }
+
+  let approvedMap = new Map<string, Review>();
+  let ownMap = new Map<string, Review>();
+  let approvedLoaded = false;
+  let ownLoaded = !uid;
+
+  const emitMerged = () => {
+    if (!approvedLoaded || !ownLoaded) return;
+    const merged = new Map<string, Review>();
+    approvedMap.forEach((rev, id) => merged.set(id, rev));
+    ownMap.forEach((rev, id) => merged.set(id, rev));
+    onData(sortByCreatedAtDesc(Array.from(merged.values())));
+  };
+
+  const approvedQ = query(
+    collection(db, 'reviews'),
+    where('productId', '==', cleanProductId),
+    where('isApproved', '==', true)
+  );
+  const unsubApproved = onSnapshot(
+    approvedQ,
+    (snap) => {
+      const next = new Map<string, Review>();
+      snap.docs.forEach((d) => {
+        next.set(d.id, {id: d.id, ...(d.data() as Omit<Review, 'id'>)});
+      });
+      approvedMap = next;
+      approvedLoaded = true;
+      emitMerged();
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'reviews');
+      } catch (wrapped) {
+        onError(wrapped instanceof Error ? wrapped : new Error(String(wrapped)));
+      }
+    }
+  );
+
+  let unsubOwn: Unsubscribe = () => {};
+  if (uid) {
+    const ownQ = query(collection(db, 'reviews'), where('userId', '==', uid));
+    unsubOwn = onSnapshot(
+      ownQ,
+      (snap) => {
+        const next = new Map<string, Review>();
+        snap.docs.forEach((d) => {
+          const data = d.data() as Omit<Review, 'id'>;
+          if (data.productId === cleanProductId) {
+            next.set(d.id, {id: d.id, ...data});
+          }
+        });
+        ownMap = next;
+        ownLoaded = true;
+        emitMerged();
+      },
+      (error) => {
+        try {
+          handleFirestoreError(error, OperationType.LIST, 'reviews');
+        } catch (wrapped) {
+          onError(wrapped instanceof Error ? wrapped : new Error(String(wrapped)));
+        }
+      }
+    );
+  }
+
+  return () => {
+    unsubApproved();
+    unsubOwn();
+  };
+}
+
+export async function submitProductReview(
+  productId: string,
+  user: User,
+  rating: number,
+  comment: string,
+  isAdminUser: boolean
+): Promise<string> {
   const reviewId = `rev-${Date.now()}-${user.uid.slice(0, 6)}`;
+  const safeRating = Math.min(5, Math.max(1, Math.round(rating)));
+  const safeComment = comment.trim().slice(0, 1000);
+  const safeUserName =
+    (user.displayName || user.email?.split('@')[0] || 'Verified Shopper').trim().slice(0, 100) ||
+    'Verified Shopper';
   try {
     await setDoc(doc(db, 'reviews', reviewId), {
       productId,
       userId: user.uid,
-      userName: (user.displayName || user.email?.split('@')[0] || 'Verified Shopper').trim().slice(0, 100) || 'Verified Shopper',
-      rating,
-      comment: comment.trim().slice(0, 1000),
+      userName: safeUserName,
+      rating: safeRating,
+      comment: safeComment,
       isApproved: isAdminUser,
       createdAt: serverTimestamp(),
     });
+    return reviewId;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, `reviews/${reviewId}`);
+  }
+}
+
+export async function updateCustomerReview(
+  reviewId: string,
+  user: User,
+  rating: number,
+  comment: string,
+  isAdminUser: boolean
+): Promise<void> {
+  const safeRating = Math.min(5, Math.max(1, Math.round(rating)));
+  const safeComment = comment.trim().slice(0, 1000);
+  const safeUserName =
+    (user.displayName || user.email?.split('@')[0] || 'Verified Shopper').trim().slice(0, 100) ||
+    'Verified Shopper';
+  try {
+    await updateDoc(doc(db, 'reviews', reviewId), {
+      rating: safeRating,
+      comment: safeComment,
+      userName: safeUserName,
+      isApproved: isAdminUser,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `reviews/${reviewId}`);
+  }
+}
+
+export async function deleteProductReview(reviewId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'reviews', reviewId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, `reviews/${reviewId}`);
   }
 }
 
@@ -1070,7 +1221,27 @@ export async function deleteAdminBanner(user: User, bannerId: string) {
 
 export async function moderateReviewAdmin(user: User, reviewId: string, isApproved: boolean) {
   try {
-    await updateDoc(doc(db, 'reviews', reviewId), {isApproved});
+    const revRef = doc(db, 'reviews', reviewId);
+    const revSnap = await getDoc(revRef).catch(() => null);
+    await updateDoc(revRef, {isApproved});
+
+    const productId = revSnap?.exists() ? String((revSnap.data() as {productId?: unknown}).productId || '') : '';
+    if (productId) {
+      const approvedSnap = await getDocs(
+        query(collection(db, 'reviews'), where('productId', '==', productId), where('isApproved', '==', true))
+      ).catch(() => null);
+      if (approvedSnap) {
+        const ratings = approvedSnap.docs.map((d) => Number((d.data() as {rating?: unknown}).rating || 0)).filter((r) => r >= 1 && r <= 5);
+        const ratingCount = ratings.length;
+        const ratingAvg = ratingCount > 0 ? Number((ratings.reduce((a, b) => a + b, 0) / ratingCount).toFixed(2)) : 0;
+        await updateDoc(doc(db, 'products', productId), {
+          ratingAvg,
+          ratingCount,
+          updatedAt: serverTimestamp(),
+        }).catch(() => {});
+      }
+    }
+
     await logAdminAction(user, 'MODERATE_REVIEW', 'reviews', reviewId, isApproved ? 'Approved review' : 'Hidden review');
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `reviews/${reviewId}`);

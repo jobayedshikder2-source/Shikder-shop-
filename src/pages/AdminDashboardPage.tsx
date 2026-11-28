@@ -39,6 +39,7 @@ import {useStore} from '../context/StoreContext';
 import {ImageWithFallback} from '../components/ImageWithFallback';
 import {formatBDT, formatDhakaDateTime} from '../lib/bd-locations';
 import {BOOTSTRAPPED_ADMIN_EMAIL} from '../lib/firebase';
+import {DEFAULT_WEBSITE_SETTINGS} from '../data/seedCatalog';
 import {
   deleteAdminBanner,
   deleteAdminBrand,
@@ -244,7 +245,7 @@ export const AdminDashboardPage: React.FC = () => {
   // Settings drafts
   const [shipDraft, setShipDraft] = useState<ShippingSettings>(shippingSettings);
   const [payDraft, setPayDraft] = useState<PaymentSettings>(paymentSettings);
-  const [webDraft, setWebDraft] = useState<WebsiteSettings>(websiteSettings);
+  const [webDraft, setWebDraft] = useState<WebsiteSettings>({...DEFAULT_WEBSITE_SETTINGS, ...websiteSettings});
 
   useEffect(() => {
     setShipDraft(shippingSettings);
@@ -253,7 +254,7 @@ export const AdminDashboardPage: React.FC = () => {
     setPayDraft(paymentSettings);
   }, [paymentSettings]);
   useEffect(() => {
-    setWebDraft(websiteSettings);
+    setWebDraft({...DEFAULT_WEBSITE_SETTINGS, ...websiteSettings});
   }, [websiteSettings]);
 
   const loadWorkspace = useCallback(async () => {
@@ -1873,7 +1874,7 @@ export const AdminDashboardPage: React.FC = () => {
                     type="button"
                     onClick={async () => {
                       await moderateReviewAdmin(user, rev.id, !rev.isApproved);
-                      await loadWorkspace();
+                      await Promise.all([loadWorkspace(), refreshCatalog()]);
                       showToast(rev.isApproved ? 'Review hidden' : 'Review approved');
                     }}
                     className={`px-4 py-1.5 rounded-full text-xs font-semibold ${
@@ -2168,7 +2169,45 @@ export const AdminDashboardPage: React.FC = () => {
                 <input
                   value={webDraft.supportPhone}
                   onChange={(e) => setWebDraft({...webDraft, supportPhone: e.target.value})}
+                  placeholder="+880 1996-266204"
                   className="rounded-lg px-3 py-2 text-sm font-mono font-normal bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                WhatsApp Number
+                <input
+                  value={webDraft.whatsappNumber || ''}
+                  onChange={(e) => setWebDraft({...webDraft, whatsappNumber: e.target.value})}
+                  placeholder="01996266204"
+                  className="rounded-lg px-3 py-2 text-sm font-mono font-normal bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold">
+                Support Gmail / Email
+                <input
+                  type="email"
+                  value={webDraft.supportEmail}
+                  onChange={(e) => setWebDraft({...webDraft, supportEmail: e.target.value})}
+                  placeholder="yourgmail@gmail.com"
+                  className="rounded-lg px-3 py-2 text-sm font-normal bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold sm:col-span-2">
+                Instagram Account URL or @username
+                <input
+                  value={webDraft.instagramUrl || ''}
+                  onChange={(e) => setWebDraft({...webDraft, instagramUrl: e.target.value})}
+                  placeholder="https://www.instagram.com/yourhandle or @yourhandle"
+                  className="rounded-lg px-3 py-2 text-sm font-normal bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant"
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold sm:col-span-2">
+                Store Address
+                <input
+                  value={webDraft.address}
+                  onChange={(e) => setWebDraft({...webDraft, address: e.target.value})}
+                  placeholder="Asuliya, Savar, Dhaka, Bangladesh"
+                  className="rounded-lg px-3 py-2 text-sm font-normal bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs font-semibold sm:col-span-2">

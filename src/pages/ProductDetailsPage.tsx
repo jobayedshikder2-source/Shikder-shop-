@@ -1,39 +1,31 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {Link, useParams} from 'react-router-dom';
-import {CheckCircle2, Heart, Minus, Plus, ShieldCheck, ShoppingBag, Star, Truck} from 'lucide-react';
+import {Heart, Minus, Plus, ShieldCheck, ShoppingBag, Star, Truck} from 'lucide-react';
 import {useStore} from '../context/StoreContext';
-import {formatBDT, formatDhakaDateTime} from '../lib/bd-locations';
-import {fetchProductReviews, submitProductReview} from '../services/firestoreService';
-import {reviewSchema} from '../lib/validators';
-import type {Review} from '../types/ecommerce';
+import {formatBDT} from '../lib/bd-locations';
 import {ImageWithFallback} from '../components/ImageWithFallback';
 import {ProductCard} from '../components/ProductCard';
+import {ProductReviews} from '../components/ProductReviews';
 
 export const ProductDetailsPage: React.FC = () => {
   const {slug} = useParams<{slug: string}>();
-  const {products, categories, brands, addToCart, toggleWishlist, wishlist, user, isAdmin, language, showToast} = useStore();
+  const {products, categories, brands, addToCart, toggleWishlist, wishlist, language} = useStore();
 
   const product = useMemo(() => products.find((p) => p.slug === slug), [products, slug]);
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
-
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
-  const [submittingReview, setSubmittingReview] = useState(false);
+  const [liveReviewStats, setLiveReviewStats] = useState<{avg: number; count: number} | null>(null);
 
   useEffect(() => {
     if (product) {
       setSelectedVariantId(product.variants?.[0]?.id || '');
       setSelectedImageIdx(0);
       setQuantity(1);
+      setLiveReviewStats(null);
       document.title = product.seoTitle || `${product.name} — SHIKDER SHOP`;
-      fetchProductReviews(product.id, user?.uid)
-        .then(setReviews)
-        .catch(() => {});
     }
-  }, [product, user?.uid]);
+  }, [product]);
 
   if (!product) {
     return (
@@ -73,31 +65,6 @@ export const ProductDetailsPage: React.FC = () => {
       price: String(price),
       availability: product.stockQuantity > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
     },
-  };
-
-  const handleReviewSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      showToast('Please sign in to submit a review');
-      return;
-    }
-    const parsed = reviewSchema.safeParse({rating, comment});
-    if (!parsed.success) {
-      showToast(parsed.error.issues[0]?.message || 'Invalid review');
-      return;
-    }
-    setSubmittingReview(true);
-    try {
-      await submitProductReview(product.id, user, rating, parsed.data.comment, isAdmin);
-      setComment('');
-      const updated = await fetchProductReviews(product.id, user.uid);
-      setReviews(updated);
-      showToast(isAdmin ? 'Review published' : 'Review submitted for approval');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Could not post review');
-    } finally {
-      setSubmittingReview(false);
-    }
   };
 
   return (
@@ -157,9 +124,9 @@ export const ProductDetailsPage: React.FC = () => {
               <span>·</span>
               <span className="font-mono">SKU: {product.sku}</span>
               <span>·</span>
-              <span className="inline-flex items-center gap-1 font-semibold">
+              <span className="inline-flex items-center gap-1 font-semibold tabular-nums">
                 <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                {product.ratingAvg?.toFixed(1) || '4.8'} ({product.ratingCount || 0})
+                {(liveReviewStats?.avg ?? product.ratingAvg)?.toFixed(1) || '4.8'} ({liveReviewStats?.count ?? product.ratingCount ?? 0})
               </span>
             </div>
             <h1 className="font-headline text-2xl md:text-3xl font-bold">
@@ -301,70 +268,13 @@ export const ProductDetailsPage: React.FC = () => {
         </section>
       </div>
 
-      {/* Reviews Section */}
-      <section className="rounded-2xl bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant p-6 flex flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-headline text-xl font-bold">Customer Reviews ({reviews.length})</h2>
-        </div>
-
-        <form onSubmit={handleReviewSubmit} className="flex flex-col gap-3 p-4 rounded-xl bg-light-surface-container-low dark:bg-dark-surface-container border border-light-outline-variant dark:border-dark-outline-variant">
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-semibold">Rating:</label>
-            <select
-              value={rating}
-              onChange={(e) => setRating(Number(e.target.value))}
-              className="rounded-lg px-2.5 py-1 text-sm bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant"
-            >
-              {[5, 4, 3, 2, 1].map((n) => (
-                <option key={n} value={n}>{n} Stars</option>
-              ))}
-            </select>
-          </div>
-          <textarea
-            rows={2}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder={user ? 'Share your experience with this product...' : 'Sign in to write a product review'}
-            className="w-full rounded-lg px-3 py-2 text-sm bg-light-surface-container-lowest dark:bg-dark-surface-container-low border border-light-outline-variant dark:border-dark-outline-variant"
-          />
-          <button
-            type="submit"
-            disabled={submittingReview || !user}
-            className="self-start px-5 py-2 rounded-full bg-light-primary dark:bg-dark-primary text-light-on-primary dark:text-dark-on-primary text-xs font-semibold disabled:opacity-50"
-          >
-            {submittingReview ? 'Submitting...' : 'Submit Review'}
-          </button>
-        </form>
-
-        <div className="flex flex-col divide-y divide-light-outline-variant dark:divide-dark-outline-variant">
-          {reviews.length === 0 ? (
-            <p className="text-sm text-light-on-surface-variant dark:text-dark-on-surface-variant py-2">
-              No reviews yet. Be the first verified shopper to review this item.
-            </p>
-          ) : (
-            reviews.map((rev) => (
-              <div key={rev.id} className="py-3 flex flex-col gap-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold flex items-center gap-1.5">
-                    {rev.userName}
-                    {!rev.isApproved && (
-                      <span className="text-warning">(Pending approval)</span>
-                    )}
-                    {rev.isApproved && (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-                    )}
-                  </span>
-                  <span className="text-light-outline dark:text-dark-outline">
-                    {formatDhakaDateTime(rev.createdAt)}
-                  </span>
-                </div>
-                <div className="text-xs font-semibold text-amber-500">{'★'.repeat(rev.rating)}</div>
-                <p className="text-sm text-light-on-surface-variant dark:text-dark-on-surface-variant">{rev.comment}</p>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
+      <ProductReviews
+        productId={product.id}
+        productName={product.name}
+        fallbackRatingAvg={product.ratingAvg}
+        fallbackRatingCount={product.ratingCount}
+        onStatsChange={setLiveReviewStats}
+      />
 
       {related.length > 0 && (
         <section className="flex flex-col gap-4">

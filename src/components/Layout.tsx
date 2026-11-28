@@ -5,6 +5,8 @@ import {
   Grid,
   Heart,
   Home,
+  Instagram,
+  MessageCircle,
   Moon,
   Search,
   ShieldCheck,
@@ -14,7 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 import {useStore} from '../context/StoreContext';
-import {formatBDT} from '../lib/bd-locations';
+import {formatBDT, getInstagramUrl, getWhatsAppUrl} from '../lib/bd-locations';
 import {OfflineIndicator, PWAInstallButton} from './PWAWidgets';
 
 export const Layout: React.FC<{children: React.ReactNode}> = ({children}) => {
@@ -282,10 +284,34 @@ export const Layout: React.FC<{children: React.ReactNode}> = ({children}) => {
           </div>
 
           <div className="flex flex-col gap-2 text-sm text-light-on-surface-variant dark:text-dark-on-surface-variant">
-            <h3 className="font-title font-semibold text-light-on-surface dark:text-dark-on-surface">Dhaka Flagship</h3>
+            <h3 className="font-title font-semibold text-light-on-surface dark:text-dark-on-surface">Store &amp; Support</h3>
             <p>{websiteSettings.address}</p>
-            <p className="font-mono text-xs">{websiteSettings.supportPhone}</p>
-            <p className="text-xs">{websiteSettings.supportEmail}</p>
+            <a
+              href={`mailto:${websiteSettings.supportEmail}`}
+              className="text-xs hover:underline break-all"
+            >
+              {websiteSettings.supportEmail}
+            </a>
+            <div className="flex flex-wrap items-center gap-3 pt-1 text-xs font-semibold">
+              <a
+                href={getWhatsAppUrl(websiteSettings.whatsappNumber || websiteSettings.supportPhone)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-success hover:underline"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>WhatsApp: {websiteSettings.whatsappNumber || websiteSettings.supportPhone}</span>
+              </a>
+              <a
+                href={getInstagramUrl(websiteSettings.instagramUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-light-primary dark:text-dark-primary hover:underline"
+              >
+                <Instagram className="w-4 h-4" />
+                <span>Instagram</span>
+              </a>
+            </div>
             {isAdmin && (
               <Link to="/admin" className="mt-1 inline-flex items-center gap-1.5 text-light-primary dark:text-dark-primary font-semibold hover:underline">
                 <ShieldCheck className="w-4 h-4" />

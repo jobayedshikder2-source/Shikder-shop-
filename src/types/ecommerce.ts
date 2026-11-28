@@ -260,8 +260,10 @@ export interface WebsiteSettings {
   announcementText: string;
   announcementTextBn: string;
   supportPhone: string;
+  whatsappNumber?: string;
   supportEmail: string;
   address: string;
+  instagramUrl?: string;
   primaryColor: string;
   secondaryColor: string;
   showFlashSale: boolean;

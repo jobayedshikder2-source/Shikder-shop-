@@ -54,9 +54,14 @@ export const ProductCard: React.FC<{product: Product}> = ({product}) => {
           <div className="flex items-center gap-1.5 text-xs text-light-on-surface-variant dark:text-dark-on-surface-variant">
             <span className="truncate">{categoryName}</span>
             <span aria-hidden="true">·</span>
-            <span className="inline-flex items-center gap-0.5 tabular-nums shrink-0">
+            <span className="inline-flex items-center gap-1 tabular-nums shrink-0">
               <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-              {product.ratingAvg?.toFixed(1) || '4.8'}
+              <span className="font-medium text-light-on-surface dark:text-dark-on-surface">
+                {(product.ratingAvg ?? 0) > 0 ? product.ratingAvg.toFixed(1) : 'New'}
+              </span>
+              {(product.ratingCount ?? 0) > 0 && (
+                <span className="text-light-outline dark:text-dark-outline">({product.ratingCount})</span>
+              )}
             </span>
           </div>
 

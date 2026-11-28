@@ -481,8 +481,19 @@ service cloud.firestore {
         (incoming().isApproved == false || isAdmin()) &&
         exists(/databases/$(database)/documents/products/$(incoming().productId)) &&
         incoming().createdAt == request.time;
-      allow update: if isValidId(reviewId) && isAdmin() && isValidReview(incoming()) &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['isApproved']);
+      allow update: if isValidId(reviewId) && isSignedIn() && isValidReview(incoming()) && (
+        (
+          isAdmin() &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['isApproved'])
+        ) || (
+          existing().userId == request.auth.uid &&
+          incoming().productId == existing().productId &&
+          incoming().userId == existing().userId &&
+          incoming().createdAt == existing().createdAt &&
+          (incoming().isApproved == false || isAdmin()) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['rating', 'comment', 'userName', 'isApproved'])
+        )
+      );
       allow delete: if isValidId(reviewId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
     }
 

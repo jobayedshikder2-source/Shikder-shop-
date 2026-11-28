@@ -138,6 +138,23 @@ export function formatBDT(amount: number): string {
   return `৳${rounded.toLocaleString('en-US')}`;
 }
 
+export function getWhatsAppUrl(phoneOrUrl?: string): string {
+  const raw = (phoneOrUrl || '01996266204').trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('880')) return `https://wa.me/${digits}`;
+  if (digits.startsWith('01')) return `https://wa.me/88${digits}`;
+  return digits ? `https://wa.me/${digits}` : 'https://wa.me/8801996266204';
+}
+
+export function getInstagramUrl(handleOrUrl?: string): string {
+  const raw = (handleOrUrl || '').trim();
+  if (!raw) return 'https://www.instagram.com/';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const cleanHandle = raw.replace(/^@+/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/+$/, '');
+  return cleanHandle ? `https://www.instagram.com/${cleanHandle}/` : 'https://www.instagram.com/';
+}
+
 export function formatDhakaDateTime(value: unknown): string {
   let date: Date;
   if (value && typeof value === 'object' && 'toDate' in value && typeof (value as {toDate: () => Date}).toDate === 'function') {
